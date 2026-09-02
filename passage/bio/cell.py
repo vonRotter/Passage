@@ -47,35 +47,70 @@ class Cell:
 
     # -- the at-a-glance reads the roster needs (spec 3.11) -----------------
     def worst_metabolite(self) -> Metabolite:
-        """The pooled substance this cell is nearest to running out of."""
+        """The substance this cell is nearest to running out of, *and uses*.
+
+        Restricted to inputs of reactions the cell is actually running. A food
+        source the lineage has not adopted sits at zero forever, and reporting
+        that as the cell's problem would be true and useless.
+        """
         n = self.flow.net
-        fills = np.where(n.buffered, np.inf, self.pools / n.cap)
+        rates = np.abs(self.rates)
+        # Relative to this cell's own busiest reaction, not to an absolute
+        # number: a reaction ticking over at a thousandth of the traffic is not
+        # what the cell is short of, whatever its substrate pool reads.
+        floor = rates.max() * 0.05
+        # A starved *reverse* reaction is not the cell's problem: lactate being
+        # scarce because the cell is busy making it is not a shortage.
+        running = (rates >= max(floor, 1e-6)) & ~n.is_reverse
+        wanted = n.mask_in[running].any(axis=0) if running.any() else ~n.buffered
+        wanted = wanted & ~n.buffered
+        if not wanted.any():
+            wanted = ~n.buffered
+        fills = np.where(wanted, self.pools / n.cap, np.inf)
         return n.metabolites[int(np.argmin(fills))]
 
     def spilling(self) -> list[Metabolite]:
-        """Pools at or over capacity, which is where waste comes from."""
-        n = self.flow.net
-        over = (~n.buffered) & (self.pools >= n.cap * 0.999)
-        return [n.metabolites[i] for i in np.flatnonzero(over)]
+        """Pools actually losing material over the cap, worst first.
 
-    def dominant_class(self) -> Class:
-        """Which class of substance this cell is carrying most of, by fill.
-
-        This is what tints the cell blob on the plate, and it is meant to be
-        readable across the room without any label at all (art direction 2).
+        Not pools that merely sit full: a saturated oxygen pool or a fully
+        charged adenylate pool is a healthy cell, and marking either with the
+        alarm colour would make that colour mean nothing.
         """
         n = self.flow.net
-        best, best_fill = Class.SUGARS, -1.0
+        rate = self.flow.spill_rate[self.index]
+        idx = np.flatnonzero(rate > 1e-4)
+        return [n.metabolites[i] for i in idx[np.argsort(-rate[idx])]]
+
+    def class_reads(self) -> dict[Class, float]:
+        """How strongly each class registers, 0..1. What tints the cell.
+
+        Fill, except for the energy carriers. ATP+ADP and NAD+NADH are closed
+        pools whose totals never move, so their mean fill is a constant and
+        would win every comparison for ever, tinting every cell arterial red
+        regardless of what it was doing. What actually varies -- and what a
+        player means by "this cell has energy" -- is the charge.
+        """
+        n = self.flow.net
+        reads: dict[Class, float] = {}
         for cls in Class:
             if cls is Class.BUFFER:
                 continue
-            idx = [i for i, m in enumerate(n.metabolites) if m.cls is cls]
-            if not idx:
+            if cls is Class.ENERGY:
+                reads[cls] = self.energy_charge()
                 continue
-            mean_fill = float(np.mean(self.pools[idx] / n.cap[idx]))
-            if mean_fill > best_fill:
-                best, best_fill = cls, mean_fill
-        return best
+            idx = [i for i, m in enumerate(n.metabolites) if m.cls is cls]
+            if idx:
+                reads[cls] = float(np.mean(self.pools[idx] / n.cap[idx]))
+        return reads
+
+    def dominant_class(self) -> Class:
+        """The cell's overall cast: its story, before any number is read.
+
+        Meant to be readable across the room without a label (art direction 2):
+        a healthy working cell is ochre and red, a failing one is grey-green.
+        """
+        reads = self.class_reads()
+        return max(reads, key=reads.get)
 
     def energy_charge(self) -> float:
         """ATP as a share of the adenylate pool. The cell's headline number."""

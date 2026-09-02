@@ -81,10 +81,12 @@ class Flow:
 
         self.rate = np.zeros((n_cells, n.n_internal))
         self.x_rate = np.zeros((n_cells, n.n_exchange))
+        self.spill_rate = np.zeros((n_cells, n.n_metabolites))
         self.saturation = np.ones((n_cells, n.n_internal))
         self.inhibition = np.zeros((n_cells, n.n_internal))
 
         self.ticks = 0
+        self._dt = tuning.DT
         self.ledger = Ledger(
             supplied=np.zeros(n.n_metabolites),
             removed=np.zeros(n.n_metabolites),
@@ -111,7 +113,7 @@ class Flow:
     # -- the tick ----------------------------------------------------------
     def step(self, dt: float | None = None) -> None:
         dt = tuning.DT if dt is None else dt
-        n = self.net
+        self._dt = dt
 
         self._solve_internal(dt)
         self._solve_exchange(dt)
@@ -242,6 +244,10 @@ class Flow:
         over = np.where(n.buffered[None, :], 0.0, over) * tuning.SPILL_FRACTION
         self.pools -= over
         self.ledger.spilled += over.sum(axis=0)
+        # A pool merely sitting at its cap is not spilling. Only material
+        # actually being lost counts, because the alarm colour marks spillover
+        # and damage and nothing else in the game is ever allowed to use it.
+        self.spill_rate = over / max(self._dt, 1e-9)
 
         med_over = np.maximum(self.medium - tuning.MEDIUM_CAP, 0.0)
         med_over = np.where(n.buffered, 0.0, med_over)

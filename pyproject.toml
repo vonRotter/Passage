@@ -3,7 +3,7 @@ name = "passage"
 version = "0.1.0"
 description = "A lineage, a genome you did not choose, and a target you must hit."
 requires-python = ">=3.11"
-dependencies = ["numpy", "pygame"]
+dependencies = ["numpy>=1.26", "pygame>=2.5"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

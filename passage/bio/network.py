@@ -130,6 +130,7 @@ class Network:
         self.mask_in = (self.s_in > 0) & ~self.buffered[None, :]
         self.mask_out = (self.s_out > 0) & ~self.buffered[None, :]
 
+        self.is_reverse = np.array([r.reverse for r in self.rows[:n_int]])
         self.baseline = np.array([g.baseline for g in self.genes])
         self.markable = np.array([g.markable for g in self.genes])
 

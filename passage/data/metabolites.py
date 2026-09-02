@@ -63,7 +63,7 @@ def _m(id, label, atoms, cls, **kw):
 METABOLITES: list[Metabolite] = [
     # --- sugars: the glycolytic backbone -------------------------------
     _m("glucose", "glucose", {"C": 6, "H": 12, "O": 6}, Class.SUGARS, cap=60.0, km=5.0),
-    _m("g3p", "glyceraldehyde-3-P", {"C": 3, "H": 7, "O": 6, "P": 1}, Class.SUGARS, cap=30.0, km=3.0,
+    _m("g3p", "G3P", {"C": 3, "H": 7, "O": 6, "P": 1}, Class.SUGARS, cap=30.0, km=3.0,
        note="midpoint of glycolysis; fructose enters here, bypassing regulation"),
     _m("pyruvate", "pyruvate", {"C": 3, "H": 4, "O": 3}, Class.SUGARS, cap=30.0, km=3.0),
     _m("oxaloacetate", "oxaloacetate", {"C": 4, "H": 4, "O": 5}, Class.SUGARS,
