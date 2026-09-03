@@ -98,9 +98,9 @@ class FlowVis:
             self.washes_built += 1
         return hit
 
-    def _cell_tint(self, cls: Class, strength: float):
+    def _cell_tint(self, colour: tuple[int, int, int], strength: float):
         bucket = int(round(strength * 6))
-        key = (cls, bucket)
+        key = (colour, bucket)
         hit = self._tint_cache.get(key)
         if hit is None and bucket > 0:
             centre, radius, squash = layout.CELL_ENVELOPE
@@ -108,8 +108,8 @@ class FlowVis:
                              wobble=0.09, steps=52)
             # a whisper, not a fill. At this size the wash covers most of the
             # plate, and anything stronger drowns the paper and the linework.
-            made = ink.make_wash(shape, palette.wash_for(cls), seed=61,
-                                 strength=0.055 + bucket * 0.010)
+            made = ink.make_wash(shape, colour, seed=61,
+                                 strength=0.025 + bucket * 0.011)
             self._tint_cache[key] = hit = made
         return hit
 
@@ -132,8 +132,8 @@ class FlowVis:
 
     def _draw_tint(self, target: pygame.Surface, cell: Cell) -> None:
         """The cell's overall cast: its story, before any number is read."""
-        cls = cell.dominant_class()
-        made = self._cell_tint(cls, 1.0)
+        weights, strength = cell.cast()
+        made = self._cell_tint(palette.blend(weights), strength)
         if made:
             layer, at = made
             target.blit(layer, at)

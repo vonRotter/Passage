@@ -24,15 +24,15 @@ _STAMPS: dict[tuple, pygame.Surface] = {}
 SIDE = 68
 
 
-def _stamp(cls, selected: bool, slot: int) -> pygame.Surface:
-    key = (cls, selected, slot)
+def _stamp(colour, strength: float, selected: bool, slot: int) -> pygame.Surface:
+    key = (colour, round(strength, 2), selected, slot)
     layer = _STAMPS.get(key)
     if layer is None:
         layer = pygame.Surface((SIDE, SIDE + 18), pygame.SRCALPHA)
         shape = ink.blob((SIDE / 2, SIDE / 2), 22, seed=900 + slot * 5,
                          wobble=0.13)
-        ink.wash(layer, shape, palette.wash_for(cls), seed=910 + slot * 5,
-                 strength=0.9)
+        ink.wash(layer, shape, colour, seed=910 + slot * 5,
+                 strength=0.35 + strength * 0.75)
         ink.ink_curve(layer, shape, 1.5 if selected else 0.9,
                       seed=920 + slot * 5, closed=True,
                       alpha=1.0 if selected else 0.55)
@@ -48,11 +48,11 @@ def draw(surface: pygame.Surface, cells: list[Cell], selected: int) -> None:
     top = 76
     for i, cell in enumerate(cells):
         cy = top + i * 92
-        cls = cell.dominant_class()
-        surface.blit(_stamp(cls, i == selected, i % 8),
+        weights, strength = cell.cast()
+        surface.blit(_stamp(palette.blend(weights), strength, i == selected, i % 8),
                      (int(x + 46 - SIDE / 2), int(cy + 26 - SIDE / 2)))
 
-        typo.caps(surface, cls.value.replace("_", " "), (x + 82, cy + 12), 9,
+        typo.caps(surface, cell.dominant_pathway(), (x + 82, cy + 12), 9,
                   palette.INK_FAINT, 1.1)
         worst = cell.worst_metabolite()
         state = ("starving" if cell.starving()

@@ -41,6 +41,19 @@ def wash_for(cls: Class) -> RGB:
     return CLASS_WASH.get(cls, INK_FAINT)
 
 
+def blend(weights: dict[Class, float]) -> RGB:
+    """Mix the class washes by weight. What a cell's cast actually looks like."""
+    if not weights:
+        return INK_FAINT
+    total = sum(weights.values()) or 1.0
+    out = [0.0, 0.0, 0.0]
+    for cls, w in weights.items():
+        colour = CLASS_WASH.get(cls, INK_FAINT)
+        for i in range(3):
+            out[i] += colour[i] * w / total
+    return tuple(int(round(c)) for c in out)
+
+
 def fade(colour: RGB, amount: float, toward: RGB = PAPER) -> RGB:
     """Mix a colour toward the paper. 0 is untouched, 1 is gone.
 

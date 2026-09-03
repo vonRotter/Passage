@@ -78,6 +78,10 @@ class Flow:
         self.target = np.tile(n.baseline, (n_cells, 1))
         self.expression = self.target.copy()
         self.enzyme = self.expression.copy()
+        # Per-gene multiplier on how slowly expression follows its target. A
+        # gene whose mark was just lifted moves more sluggishly than one being
+        # marked for the first time (spec 3.3).
+        self.relax_scale = np.ones((n_cells, n.n_genes))
 
         self.rate = np.zeros((n_cells, n.n_internal))
         self.x_rate = np.zeros((n_cells, n.n_exchange))
@@ -258,13 +262,30 @@ class Flow:
         np.clip(self.medium, 0.0, None, out=self.medium)
 
     def _relax(self, dt: float) -> None:
-        """Expression follows its target; enzyme follows expression. Both lag."""
-        a = 1.0 - np.exp(-dt / tuning.EXPRESSION_TAU)
+        """Expression follows its target; enzyme follows expression. Both lag.
+
+        Nothing in this game responds instantly, and that lag is what makes
+        regulation a decision rather than a switch.
+        """
+        a = 1.0 - np.exp(-dt / (tuning.EXPRESSION_TAU * self.relax_scale))
         self.expression += (self.target - self.expression) * a
         b = 1.0 - np.exp(-dt / tuning.ENZYME_TAU)
         self.enzyme += (self.expression - self.enzyme) * b
 
     # -- inspection --------------------------------------------------------
+    def settle(self) -> None:
+        """Snap expression and enzyme to whatever the marks currently ask for.
+
+        A run begins with a cell that is already expressing its opening marks,
+        not with one that has to build every enzyme from scratch while paying
+        full upkeep. Without this the first fifteen seconds kill the cell before
+        any enzyme exists to save it, which is an artificial death that teaches
+        the player nothing. At M3 this is simply true: a daughter inherits its
+        parent's enzyme state along with its marks.
+        """
+        self.expression[:] = self.target
+        self.enzyme[:] = self.target
+
     def rate_of(self, row_id: str, cell: int = 0) -> float:
         n = self.net
         i = n.ri(row_id)
@@ -282,6 +303,18 @@ class Flow:
         if immediate:
             self.expression[cell, g] = level
             self.enzyme[cell, g] = level
+
+    def throughput(self, cell: int | slice = slice(None)) -> float:
+        """Total internal traffic, in units per second. What the hum tracks.
+
+        Upkeep is left out: it runs whether or not the factory is working, and
+        counting it would put a floor under the hum that hides exactly the slow
+        stall a player is meant to hear coming.
+        """
+        n = self.net
+        keep = np.array([row.reaction != "maintenance"
+                         for row in n.rows[:n.n_internal]])
+        return float(np.abs(self.rate[cell][..., keep]).sum())
 
     def atom_residual(self) -> np.ndarray:
         """Atoms currently held, minus atoms that ever entered. Should be zero."""

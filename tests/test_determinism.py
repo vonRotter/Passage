@@ -12,7 +12,7 @@ from passage.bio.flow import Flow
 
 def trace_run(seed: int, ticks: int = 50_000):
     """A run with marks applied partway through, as a player would."""
-    flow = build("aerobic", seed=seed)
+    flow, marks = build("respiring", seed=seed)
     schedule = {5_000: ("etc", 0.0), 12_000: ("ldh", 1.0),
                 25_000: ("etc", 1.0), 33_000: ("pfk", 0.2)}
     for tick in range(ticks):
@@ -39,10 +39,10 @@ def test_ledger_is_reproduced_too():
 def test_a_different_input_trace_diverges():
     """Guards against the run being deterministic for the boring reason that
     nothing in it responds to input at all."""
-    plain = build("aerobic", seed=7)
+    plain, _ = build("respiring", seed=7)
     for _ in range(20_000):
         plain.step()
-    marked = build("aerobic", seed=7)
+    marked, _ = build("respiring", seed=7)
     for tick in range(20_000):
         if tick == 5_000:
             marked.set_expression("etc", 0.0)

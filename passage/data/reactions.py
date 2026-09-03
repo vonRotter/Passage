@@ -47,12 +47,12 @@ INTERNAL: list[Reaction] = [
     # --- glycolysis -----------------------------------------------------
     _r("glycolysis_upper", "glucose → 2 G3P",
        {"glucose": 1, "atp": 2}, {"g3p": 2, "adp": 2},
-       "pfk", 3.0,
+       "pfk", 9.0,
        note="hexokinase through aldolase; two ATP invested, no return yet"),
     _r("glycolysis_lower", "G3P → pyruvate",
        {"g3p": 1, "adp": 2, "phosphate": 1, "nad": 1},
        {"pyruvate": 1, "atp": 2, "nadh": 1, "water": 1},
-       "gapdh", 6.0,
+       "gapdh", 18.0,
        note="GAPDH through pyruvate kinase; the substrate-level payoff"),
     _r("gluconeogenesis", "2 G3P → glucose",
        {"g3p": 2, "water": 2}, {"glucose": 1, "phosphate": 2},
@@ -62,7 +62,7 @@ INTERNAL: list[Reaction] = [
     # --- fermentation ---------------------------------------------------
     _r("fermentation", "pyruvate → lactate",
        {"pyruvate": 1, "nadh": 1}, {"lactate": 1, "nad": 1},
-       "ldh", 7.0, reversible=True, reverse_ratio=0.15,
+       "ldh", 14.0, reversible=True, reverse_ratio=0.15,
        note="the only way to regenerate NAD+ without oxygen"),
 
     # --- entry to the cycle ---------------------------------------------
@@ -115,11 +115,13 @@ INTERNAL: list[Reaction] = [
 
     # --- growth -----------------------------------------------------------
     _r("biosynthesis", "acetyl + glutamate → biomass",
-       {"acetyl": 2, "glutamate": 1, "atp": 2},
-       {"biomass": 1, "adp": 2, "phosphate": 2},
-       "biosyn", 2.0,
-       note="one lumped condensation standing for the whole anabolic load; "
-            "biomass is what a cell must accumulate before it can divide"),
+       {"acetyl": 2, "glutamate": 1, "atp": 8, "water": 6},
+       {"biomass": 1, "adp": 8, "phosphate": 8},
+       "biosyn", 2.2,
+       note="one lumped condensation standing for the whole anabolic load. "
+            "Eight ATP a unit, because in a growing cell biosynthesis is where "
+            "almost all the energy goes -- and if it were not, the cell would "
+            "have no reason to make ATP and no reason to care about marks"),
 
     # --- nitrogen ---------------------------------------------------------
     _r("gdh", "glutamate ⇌ 2-oxoglutarate + NH3",
@@ -131,8 +133,13 @@ INTERNAL: list[Reaction] = [
     # --- the cost of being alive ------------------------------------------
     _r("maintenance", "ATP → ADP",
        {"atp": 1, "water": 1}, {"adp": 1, "phosphate": 1},
-       "maintenance", 5.0,
-       note="unregulated basal burn; the floor every configuration must clear"),
+       "maintenance", 9.0,
+       note="unregulated basal burn, and the floor every configuration must "
+            "clear. It is deliberately steep: when upkeep is cheap the cell has "
+            "no reason to make ATP, the energy charge pins at the top, ADP runs "
+            "out, and every ATP-producing step starves on its own substrate "
+            "side. The whole plate then sits in a low-flux equilibrium that no "
+            "mark can lift, and the game stops being about marks"),
 ]
 
 EXCHANGE: list[Reaction] = [
@@ -141,14 +148,30 @@ EXCHANGE: list[Reaction] = [
     # (spec 3.6). ``base_rate`` is the permeability, not a direction. There is
     # no separate "export" row, because a carrier that could pump both ways at
     # once would just spin a futile cycle.
-    _r("exchange_glucose", "glucose", {"glucose": 1}, {"glucose": 1}, "glut", 3.0, exchange=True),
+    _r("exchange_glucose", "glucose", {"glucose": 1}, {"glucose": 1}, "glut", 10.0, exchange=True),
     _r("exchange_o2", "oxygen", {"o2": 1}, {"o2": 1}, "resp_o2", 20.0, exchange=True),
     _r("exchange_palmitate", "palmitate", {"palmitate": 1}, {"palmitate": 1}, "cd36", 1.5, exchange=True),
     _r("exchange_glutamate", "glutamate", {"glutamate": 1}, {"glutamate": 1}, "aat", 2.5, exchange=True),
-    _r("exchange_lactate", "lactate", {"lactate": 1}, {"lactate": 1}, "mct", 6.0, exchange=True),
+    _r("exchange_lactate", "lactate", {"lactate": 1}, {"lactate": 1}, "mct", 14.0, exchange=True),
     _r("exchange_co2", "carbon dioxide", {"co2": 1}, {"co2": 1}, "co2_vent", 3.0, exchange=True),
     _r("exchange_ammonia", "ammonia", {"ammonia": 1}, {"ammonia": 1}, "amt", 4.0, exchange=True),
 ]
+
+#: Reactions grouped into the pathways a person would name out loud. Used for
+#: the roster's "dominant pathway" and for saying, in plain words, what a cell
+#: is mostly doing. Purely a naming layer -- the solver knows nothing about it.
+PATHWAYS: dict[str, tuple[str, ...]] = {
+    "glycolysis": ("glycolysis_upper", "glycolysis_lower"),
+    "gluconeogenesis": ("gluconeogenesis", "cataplerosis"),
+    "fermentation": ("fermentation",),
+    "the citric acid cycle": ("pdh", "tca_upper", "tca_lower", "anaplerosis"),
+    "respiration": ("oxphos",),
+    "fat burning": ("beta_oxidation",),
+    "fat storage": ("lipogenesis",),
+    "nitrogen handling": ("gdh",),
+    "growth": ("biosynthesis",),
+    "upkeep": ("maintenance",),
+}
 
 REACTIONS: list[Reaction] = INTERNAL + EXCHANGE
 BY_ID: dict[str, Reaction] = {r.id: r for r in REACTIONS}

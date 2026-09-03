@@ -14,6 +14,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .. import tuning
+from ..data import reactions as rxn_data
 from ..data.metabolites import Class, Metabolite
 from .flow import Flow
 
@@ -103,14 +105,42 @@ class Cell:
                 reads[cls] = float(np.mean(self.pools[idx] / n.cap[idx]))
         return reads
 
-    def dominant_class(self) -> Class:
-        """The cell's overall cast: its story, before any number is read.
+    def cast(self) -> tuple[dict[Class, float], float]:
+        """What tints the cell, as a set of weights and an overall strength.
 
-        Meant to be readable across the room without a label (art direction 2):
-        a healthy working cell is ochre and red, a failing one is grey-green.
+        A blend, not a winner. Meant to be readable across the room without a
+        label (art direction 2): a healthy working cell is ochre and red, a
+        choked one pulls grey-green, and a dying one goes pale because there is
+        very little of anything left to colour it.
+
+        Returns the weight per class and a 0..1 strength for the whole tint.
         """
-        reads = self.class_reads()
-        return max(reads, key=reads.get)
+        weights = {}
+        for cls, read in self.class_reads().items():
+            w = tuning.CLASS_TINT_WEIGHT.get(cls.value, 1.0) * read
+            if w > 1e-4:
+                weights[cls] = w
+        total = sum(weights.values())
+        if total <= 1e-4:
+            return {}, 0.0
+        strength = min(1.0, total / tuning.TINT_REFERENCE)
+        return {c: w / total for c, w in weights.items()}, strength
+
+    def dominant_class(self) -> Class:
+        """The single class the cast leans on most. For labels, not for colour."""
+        weights, _ = self.cast()
+        return max(weights, key=weights.get) if weights else Class.SUGARS
+
+    def dominant_pathway(self) -> str:
+        """What this cell is mostly doing, named the way a person would say it."""
+        best, best_flux = "idle", 0.0
+        for name, rows in rxn_data.PATHWAYS.items():
+            if name == "upkeep":
+                continue           # every cell does this; it says nothing
+            flux = sum(abs(self.flow.rate_of(r, self.index)) for r in rows)
+            if flux > best_flux:
+                best, best_flux = name, flux
+        return best if best_flux > 1e-3 else "idle"
 
     def energy_charge(self) -> float:
         """ATP as a share of the adenylate pool. The cell's headline number."""

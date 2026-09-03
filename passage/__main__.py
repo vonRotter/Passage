@@ -28,39 +28,37 @@ import numpy as np
 from . import tuning
 from .bio.cell import Cell
 from .bio.flow import Flow
+from .bio.marks import Kind, Marks
 from .data.metabolites import Class, POOLED
 
-#: Hand-written expression sets, for looking at the chemistry under load.
-#: These are not the game -- the game is the player choosing them with marks
-#: (M2). They exist so that M0 can be inspected without a mark system.
-PROFILES: dict[str, dict[str, float]] = {
-    "baseline": {},
-    "aerobic": {
-        "glut": 0.9, "pfk": 0.8, "gapdh": 0.9, "pdh": 0.8,
-        "cs": 0.9, "ogdh": 0.9, "etc": 1.0, "pc": 0.5,
-        "biosyn": 0.8, "aat": 0.6,
-    },
-    "tuned": {
-        "glut": 1.0, "pfk": 0.9, "gapdh": 1.0, "pdh": 0.9,
-        "cs": 0.8, "ogdh": 0.8, "etc": 1.0, "pc": 0.6, "aat": 0.9,
-        "biosyn": 1.0, "ldh": 0.0, "fas": 0.0,
-    },
-    "fermenting": {
-        "glut": 1.0, "pfk": 1.0, "gapdh": 1.0, "ldh": 1.0, "mct": 1.0,
-        "etc": 0.05, "pdh": 0.05, "fbpase": 0.0,
-    },
-    "etc_silenced": {
-        "glut": 0.9, "pfk": 0.8, "gapdh": 0.9, "pdh": 0.8,
-        "cs": 0.9, "ogdh": 0.9, "etc": 0.0, "pc": 0.5, "biosyn": 0.8,
-    },
+#: Opening books: mark sets a player could actually place, within the budget of
+#: eight. They are not the game -- the game is choosing them -- but they let a
+#: run start from somewhere other than a blank page, and they keep the headless
+#: numbers honest, because an illegal configuration would flatter the chemistry
+#: with a spread no player could reach.
+PROFILES: dict[str, list[tuple[str, str]]] = {
+    "baseline": [],
+    "respiring": [("glut", "+"), ("pfk", "+"), ("gapdh", "+"), ("pdh", "+"),
+                  ("cs", "+"), ("ogdh", "+"), ("etc", "+"), ("biosyn", "+")],
+    "growing":   [("glut", "+"), ("gapdh", "+"), ("pdh", "+"), ("cs", "+"),
+                  ("ogdh", "+"), ("etc", "+"), ("biosyn", "+"), ("aat", "+")],
+    # A working fermenter has to spend three of its eight marks *switching
+    # things off*: leave the cycle running and it burns NAD+ that nothing can
+    # reoxidise, and the cell suffocates on its own reducing power.
+    "fermenting": [("glut", "+"), ("pfk", "+"), ("gapdh", "+"), ("ldh", "+"),
+                   ("mct", "+"), ("biosyn", "+"), ("cs", "-"), ("ogdh", "-")],
+    "starved":   [("etc", "-")],
 }
 
 
-def build(profile: str, seed: int) -> Flow:
+def build(profile: str, seed: int) -> tuple[Flow, Marks]:
+    """A cell, and the marks on it. Everything downstream reads both."""
     flow = Flow(n_cells=1, seed=seed)
-    for gene, level in PROFILES[profile].items():
-        flow.set_expression(gene, level)
-    return flow
+    marks = Marks(flow, 0)
+    for gene, sign in PROFILES[profile]:
+        marks.place(gene, Kind.ACTIVATING if sign == "+" else Kind.SILENCING)
+    flow.settle()
+    return flow, marks
 
 
 def print_pools(flow: Flow) -> None:
@@ -107,7 +105,7 @@ KEY_HELP = """
 """
 
 
-def run_window(profile: str, seed: int) -> int:
+def run_window(profile: str, seed: int, silent: bool = False) -> int:
     """The game loop. Sim at a fixed 20 Hz, render at 60."""
     os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
     import pygame
@@ -116,13 +114,15 @@ def run_window(profile: str, seed: int) -> int:
     from .render.plate import Plate
     from .render import panel, roster
     from .debug import overlay
+    from .sound import Sound
 
+    audio = Sound(enabled=not silent)
     pygame.init()
     screen = pygame.display.set_mode(tuning_window())
     pygame.display.set_caption("Passage")
     clock = pygame.time.Clock()
 
-    flow = build(profile, seed)
+    flow, marks = build(profile, seed)
     plate = Plate(seed=seed + 4)
     vis = FlowVis(plate)
     debug = overlay.Overlay()
@@ -151,10 +151,21 @@ def run_window(profile: str, seed: int) -> int:
             accumulator += min(frame, 0.25)
             while accumulator >= tuning.DT:
                 flow.step()
+                marks.update(tuning.DT)
                 accumulator -= tuning.DT
                 elapsed += tuning.DT
 
         cell = Cell(flow, 0)
+
+        # The hum is the game's most useful instrument: its pitch follows total
+        # throughput, so the factory can be heard slowing before it is seen.
+        # Under a pause it holds where it is rather than dropping to silence --
+        # the lineage has not stopped, the clock has.
+        if not paused:
+            audio.set_throughput(flow.throughput())
+            if cell.spilling():
+                audio.sour()
+        audio.update(frame)
         screen.blit(plate.surface, (0, 0))
         vis.draw(screen, flow, cell, 0.0 if paused else frame)
         roster.draw(screen, [cell], 0)
@@ -162,6 +173,7 @@ def run_window(profile: str, seed: int) -> int:
         debug.draw(screen, flow, cell, plate, clock.get_fps())
         pygame.display.flip()
 
+    audio.close()
     pygame.quit()
     return 0
 
@@ -187,9 +199,10 @@ def run_shot(profile: str, seed: int, ticks: int, path: str) -> int:
 
     pygame.init()
     pygame.display.set_mode((1, 1))
-    flow = build(profile, seed)
+    flow, marks = build(profile, seed)
     for _ in range(ticks):
         flow.step()
+        marks.update(tuning.DT)
     cell = Cell(flow, 0)
     plate = Plate(seed=seed + 4)
     vis = FlowVis(plate)
@@ -205,7 +218,7 @@ def run_shot(profile: str, seed: int, ticks: int, path: str) -> int:
 
 
 def run_headless(profile: str, seed: int, ticks: int, trace: bool) -> int:
-    flow = build(profile, seed)
+    flow, marks = build(profile, seed)
     cell = Cell(flow, 0)
     watch = ["glucose", "g3p", "pyruvate", "acetyl", "oxaloacetate",
              "atp", "nadh", "lactate", "biomass"]
@@ -218,8 +231,10 @@ def run_headless(profile: str, seed: int, ticks: int, trace: bool) -> int:
             print(f"  {tick / tuning.TICK_HZ:5.0f}s  "
                   + "".join(f"{cell.pool(m):8.2f}" for m in watch))
         flow.step()
+        marks.update(tuning.DT)
 
-    print(f"\nprofile: {profile}   seed: {seed}")
+    print(f"\nprofile: {profile}   seed: {seed}   "
+          f"marks {marks.spent:.0f}/{marks.budget:.0f}")
     print_pools(flow)
     print_rates(flow)
     print_ledger(flow)
@@ -239,13 +254,15 @@ def main(argv: list[str] | None = None) -> int:
                         help="headless only: a line of pools every 5 seconds")
     parser.add_argument("--shot", metavar="PATH",
                         help="render one frame to a PNG and exit")
+    parser.add_argument("--silent", action="store_true",
+                        help="no audio, even where a device is available")
     args = parser.parse_args(argv)
 
     if args.shot:
         return run_shot(args.profile, args.seed, args.ticks, args.shot)
     if args.headless:
         return run_headless(args.profile, args.seed, args.ticks, args.trace)
-    return run_window(args.profile, args.seed)
+    return run_window(args.profile, args.seed, args.silent)
 
 
 if __name__ == "__main__":

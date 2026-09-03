@@ -42,7 +42,7 @@ def display():
 
 @pytest.fixture(scope="module")
 def settled():
-    flow = build("tuned", seed=0)
+    flow, marks = build("growing", seed=0)
     for _ in range(6_000):
         flow.step()
     return flow
@@ -187,7 +187,7 @@ def test_density_is_compressed_not_linear():
 def test_a_full_pool_is_not_spilling():
     """The alarm colour marks spillover and damage and nothing else. A charged
     adenylate pool or a saturated oxygen pool is a healthy cell."""
-    flow = build("tuned", seed=0)
+    flow, marks = build("growing", seed=0)
     for _ in range(4_000):
         flow.step()
     cell = Cell(flow, 0)
@@ -196,7 +196,7 @@ def test_a_full_pool_is_not_spilling():
 
 
 def test_material_actually_lost_is_spilling():
-    flow = build("tuned", seed=0)
+    flow, marks = build("growing", seed=0)
     net = flow.net
     flow.pools[0, net.mi("lactate")] = net.cap[net.mi("lactate")] * 1.5
     flow.step()

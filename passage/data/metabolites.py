@@ -48,6 +48,7 @@ class Metabolite:
     cap: float = 100.0
     km: float = 5.0
     buffered: bool = False
+    inhibits: bool = True
     note: str = ""
 
     @property
@@ -85,14 +86,20 @@ METABOLITES: list[Metabolite] = [
        note="one lumped unit of new cell material; what division is paid for in"),
 
     # --- energy carriers: two conserved pairs ---------------------------
+    # The conserved carriers do not product-inhibit, and that is a correction
+    # rather than a convenience. ATP and ADP are one closed pool: a reaction
+    # that makes ATP is already throttled by ADP running short on its own
+    # substrate side. Charging it *again* for the ATP piling up counts the
+    # energy charge twice, and the doubled grip clamps the whole plate into a
+    # low-flux equilibrium that no mark can lift. The same holds for NAD+/NADH.
     _m("atp", "ATP", {"C": 10, "H": 16, "N": 5, "O": 13, "P": 3}, Class.ENERGY,
-       cap=50.0, km=2.0),
+       cap=50.0, km=2.0, inhibits=False),
     _m("adp", "ADP", {"C": 10, "H": 15, "N": 5, "O": 10, "P": 2}, Class.ENERGY,
-       cap=50.0, km=2.0),
+       cap=50.0, km=2.0, inhibits=False),
     _m("nad", "NAD+", {"C": 21, "H": 26, "N": 7, "O": 14, "P": 2}, Class.ENERGY,
-       cap=20.0, km=1.0),
+       cap=20.0, km=1.0, inhibits=False),
     _m("nadh", "NADH", {"C": 21, "H": 28, "N": 7, "O": 14, "P": 2}, Class.ENERGY,
-       cap=20.0, km=1.0),
+       cap=20.0, km=1.0, inhibits=False),
 
     # --- gases ----------------------------------------------------------
     _m("o2", "oxygen", {"O": 2}, Class.GASES, cap=30.0, km=1.0),

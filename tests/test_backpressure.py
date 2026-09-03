@@ -25,8 +25,8 @@ BOUND_TICKS = 6_000          # 300 simulated seconds
 #: more slowly than the steps inside the cell. Roughly 200 s, measured.
 
 
-def settled(profile="tuned", ticks=6_000):
-    flow = build(profile, seed=0)
+def settled(profile="respiring", ticks=6_000):
+    flow, marks = build(profile, seed=0)
     for _ in range(ticks):
         flow.step()
     return flow
