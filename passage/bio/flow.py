@@ -38,6 +38,7 @@ class Ledger:
     removed: np.ndarray         # (M,) washed out of the medium by perfusion
     buffer_net: np.ndarray      # (M,) net drawn from the buffered pools
     spilled: np.ndarray         # (M,) over-cap material, lost as waste
+    structure: np.ndarray       # (M,) biomass committed to being a cell
     initial_atoms: np.ndarray   # (A,) atoms present when the run began
 
 
@@ -111,6 +112,7 @@ class Flow:
             removed=np.zeros(n.n_metabolites),
             buffer_net=np.zeros(n.n_metabolites),
             spilled=np.zeros(n.n_metabolites),
+            structure=np.zeros(n.n_metabolites),
             initial_atoms=self._atoms(self.pools.sum(axis=0) + self.medium),
         )
 
@@ -290,6 +292,52 @@ class Flow:
         self.enzyme += (self.expression - self.enzyme) * b
 
     # -- inspection --------------------------------------------------------
+    #: Every array with one row per cell. Division appends to all of them, and
+    #: forgetting one would leave a daughter reading its parent's numbers.
+    PER_CELL = ("pools", "km", "cap", "baseline", "capacity", "x_capacity",
+                "rate_scale", "target", "expression", "enzyme", "relax_scale",
+                "rate", "x_rate", "spill_rate", "saturation", "inhibition")
+
+    def commit(self, cell: int, mid: str, amount: float) -> float:
+        """Spend a pool on becoming a cell rather than on chemistry.
+
+        The atoms are not destroyed -- they become structure, which this model
+        does not carry as a pool. Booking them keeps the conservation sum
+        closing, and dividing broke it until this existed.
+        """
+        i = self.net.mi(mid)
+        taken = float(min(max(amount, 0.0), self.pools[cell, i]))
+        self.pools[cell, i] -= taken
+        self.ledger.structure[i] += taken
+        return taken
+
+    def divide(self, parent: int, share: float = 0.5) -> int:
+        """Split a cell in two. Returns the daughter's index.
+
+        The daughter is the parent continued: it inherits the same constitution,
+        the same enzyme levels, and a share of every pool. What it does *not*
+        inherit here is its marks -- that is the lineage's business, because
+        marks are the thing the player chose and the thing that can drift.
+
+        Pools are divided rather than duplicated, which is the whole reason
+        dividing is a real investment: two half-stocked cells are worse at
+        everything than one full one, and they have to grow back.
+        """
+        n = self.net
+        for name in self.PER_CELL:
+            array = getattr(self, name)
+            setattr(self, name, np.concatenate([array, array[parent:parent + 1]],
+                                               axis=0))
+        daughter = self.n_cells
+        self.n_cells += 1
+
+        keep = np.clip(share, 0.05, 0.95)
+        self.pools[parent] *= keep
+        self.pools[daughter] *= (1.0 - keep)
+        # Buffered species are not a stock to be divided; they are the world.
+        self.pools[:, n.buffered] = 0.0
+        return daughter
+
     def constitute(self, constitution) -> None:
         """Deal this lineage its genome. Once, at the start, and never again.
 
@@ -360,7 +408,8 @@ class Flow:
     def atom_residual(self) -> np.ndarray:
         """Atoms currently held, minus atoms that ever entered. Should be zero."""
         held = self._atoms(self.pools.sum(axis=0) + self.medium
-                           + self.ledger.spilled + self.ledger.removed)
+                           + self.ledger.spilled + self.ledger.removed
+                           + self.ledger.structure)
         entered = (self.ledger.initial_atoms
                    + self._atoms(self.ledger.supplied)
                    + self._atoms(self.ledger.buffer_net))

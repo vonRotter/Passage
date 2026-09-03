@@ -38,6 +38,20 @@ REMOVAL_DEBT_HALFLIFE = 45.0    # seconds for that debt to fall by half
 REMOVAL_SLOWDOWN = 3.2          # how much slower expression moves after removal
 REMOVAL_SLOWDOWN_HALFLIFE = 20.0
 
+# --- division and inheritance (spec 3.4) ----------------------------------
+# A cell may divide once it has accumulated enough biomass, and dividing costs a
+# significant part of it, so it is always a real investment rather than a free
+# doubling. The pools are split, not copied: two half-stocked cells are worse at
+# everything than one full one and have to grow back into it.
+DIVISION_BIOMASS = 90.0         # biomass needed before a cell can divide
+DIVISION_COST = 55.0            # what dividing consumes of it
+DIVISION_SHARE = 0.5            # how the parent's pools are split
+
+# A mark occasionally fails to copy. Rare, visible, and logged -- never silent,
+# because a player who cannot see what changed has been cheated rather than
+# challenged.
+DRIFT_CHANCE = 0.035            # per mark, per division
+
 # --- pools ----------------------------------------------------------------
 SPILL_FRACTION = 1.0            # share of over-cap material that spills per tick
 DEFAULT_POOL_CAP = 100.0

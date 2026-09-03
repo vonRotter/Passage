@@ -25,6 +25,7 @@ import pytest
 
 from passage.__main__ import build
 from passage.bio.cell import Cell
+from passage.bio.lineage import Lineage
 from passage.bio.network import network
 from passage.data import layout
 from passage.render import flow_vis, ink, palette, panel, roster
@@ -46,6 +47,12 @@ def settled():
     for _ in range(6_000):
         flow.step()
     return flow
+
+
+@pytest.fixture(scope="module")
+def lineage(settled):
+    """A lineage of one. The roster draws the tree, so it needs a real one."""
+    return Lineage(settled, build("growing", seed=0)[1], seed=0)
 
 
 # --- the layout ------------------------------------------------------------
@@ -114,7 +121,7 @@ def test_an_ink_line_drawn_twice_is_identical():
 
 # --- the plate is cached ---------------------------------------------------
 
-def test_the_plate_is_inked_once_and_never_again(settled):
+def test_the_plate_is_inked_once_and_never_again(settled, lineage):
     plate = Plate(seed=4)
     vis = FlowVis(plate)
     cell = Cell(settled, 0)
@@ -122,7 +129,7 @@ def test_the_plate_is_inked_once_and_never_again(settled):
     for _ in range(180):
         screen.blit(plate.surface, (0, 0))
         vis.draw(screen, settled, cell, 1 / 60)
-        roster.draw(screen, [cell], 0)
+        roster.draw(screen, lineage, 0)
     assert plate.inkings == 1
     assert vis.inkings <= 4, "strokes are being re-inked inside the frame loop"
 
@@ -140,7 +147,7 @@ def test_the_wash_cache_settles(settled):
     assert vis.washes_built == warm, "washes are being rebuilt for an unchanged state"
 
 
-def test_nothing_crawls_between_frames(settled):
+def test_nothing_crawls_between_frames(settled, lineage):
     """The same state, drawn twice, must give the same pixels."""
     plate = Plate(seed=4)
     cell = Cell(settled, 0)
@@ -150,7 +157,7 @@ def test_nothing_crawls_between_frames(settled):
         screen = pygame.Surface(layout.WINDOW)
         screen.blit(plate.surface, (0, 0))
         vis.draw(screen, settled, cell, 0.0)
-        roster.draw(screen, [cell], 0)
+        roster.draw(screen, lineage, 0)
         return pygame.surfarray.array3d(screen)
 
     assert np.array_equal(frame(), frame())
@@ -205,7 +212,7 @@ def test_material_actually_lost_is_spilling():
 
 # --- the budget ------------------------------------------------------------
 
-def test_a_frame_fits_inside_sixty_hertz(settled):
+def test_a_frame_fits_inside_sixty_hertz(settled, lineage):
     plate = Plate(seed=4)
     vis = FlowVis(plate)
     cell = Cell(settled, 0)
@@ -215,7 +222,7 @@ def test_a_frame_fits_inside_sixty_hertz(settled):
         settled.step()
         screen.blit(plate.surface, (0, 0))
         vis.draw(screen, settled, cell, 1 / 60)
-        roster.draw(screen, [cell], 0)
+        roster.draw(screen, lineage, 0)
         panel.draw(screen, settled, cell, False, 100.0)
 
     for _ in range(120):

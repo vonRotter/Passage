@@ -122,8 +122,18 @@ class Vigour:
         return out
 
     # -- the tick -------------------------------------------------------------
-    def update(self, dt: float, cell: int = 0) -> None:
+    def update(self, dt: float, cell: int | None = None) -> None:
+        """Relish and damage are the *lineage's*, not one cell's.
+
+        Intake is totalled across every cell, because the lineage as a whole is
+        what ate. Congestion and pleasure are averaged, because they describe a
+        condition rather than a quantity: four cells all choking is a sick
+        lineage, one cell choking out of four is a lineage with a problem in it.
+        Totalling those instead would make growing the lineage a punishment.
+        """
         n = self.net
+        cells = range(self.flow.n_cells) if cell is None else (cell,)
+        count = max(1, len(list(cells)) if cell is None else 1)
         shares = self._shares()
         pleasure, harm_rate = 0.0, 0.0
         self.last = []
@@ -135,10 +145,12 @@ class Vigour:
                 k = self._exchange_index(mid)
                 if k is None:
                     continue
-                taken = float(self.flow.x_rate[cell, k])
-                if taken > 0:                     # only what came *in* is eaten
-                    intake += taken * portion
+                for c in cells:
+                    taken = float(self.flow.x_rate[c, k])
+                    if taken > 0:                 # only what came *in* is eaten
+                        intake += taken * portion
             self.eaten[food_id] = self.eaten.get(food_id, 0.0) + intake * dt
+            intake /= count                       # per cell, for relish and harm
 
             relish = food.relish * intake
             over = max(0.0, intake - food.forgiven)
@@ -157,16 +169,17 @@ class Vigour:
         #
         # This is why the same meal is nourishing to one lineage and poison to
         # another, and why there is no diet that is simply correct.
-        spilling = float(self.flow.spill_rate[cell].sum())
+        rows = list(cells)
+        spilling = float(self.flow.spill_rate[rows].sum()) / count
         self.spilling = spilling
 
-        fills = np.clip(self.flow.pools[cell] / self.flow.cap[cell], 0.0, 1.0)
+        fills = np.clip(self.flow.pools[rows] / self.flow.cap[rows], 0.0, 1.0)
         fills = np.where(n.congests & ~n.buffered, fills, 0.0)
         over = np.maximum(fills - tuning.CONGESTION_THRESHOLD, 0.0)
-        congestion = float((over ** 2).sum())
+        congestion = float((over ** 2).sum()) / count
         self.congestion = congestion
         self.congested = [n.metabolites[i].id
-                          for i in np.flatnonzero(over > 1e-6)]
+                          for i in np.flatnonzero(over.max(axis=0) > 1e-6)]
 
         harm_rate += (tuning.SPILL_DAMAGE * spilling
                       + tuning.CONGESTION_DAMAGE * congestion)
@@ -175,7 +188,7 @@ class Vigour:
         want = pleasure / (pleasure + tuning.RELISH_HALF)
         self.relish += (want - self.relish) * (1.0 - math.exp(-dt / tuning.RELISH_TAU))
         self.damage += harm_rate * dt
-        self.apply(cell)
+        self.apply()
 
     def _exchange_index(self, mid: str) -> int | None:
         n = self.net
@@ -204,10 +217,12 @@ class Vigour:
         mood = tuning.RELISH_FLOOR + (1.0 - tuning.RELISH_FLOOR) * self.relish
         return mood * math.sqrt(self.vigour)
 
-    def apply(self, cell: int = 0) -> None:
+    def apply(self, cell: int | None = None) -> None:
+        """What the lineage carries, it carries in every cell of itself."""
         n = self.net
-        self.flow.rate_scale[cell, n.ri("maintenance")] = self.upkeep_multiplier
-        self.flow.rate_scale[cell, n.ri("biosynthesis")] = self.anabolic_multiplier
+        rows = slice(None) if cell is None else cell
+        self.flow.rate_scale[rows, n.ri("maintenance")] = self.upkeep_multiplier
+        self.flow.rate_scale[rows, n.ri("biosynthesis")] = self.anabolic_multiplier
 
     # -- the score -------------------------------------------------------------
     def score(self, produced: float) -> float:
@@ -219,15 +234,20 @@ class Vigour:
         one eating well; it just burns itself down to get there. The difference
         only shows up when the score asks what is left at the end.
 
-        The denominator is food **absorbed**, which is not obviously right and
-        is recorded here because it is the next thing to fix. Charging only for
-        what a lineage managed to take up slightly rewards a lineage for its own
-        intolerance. Charging for what it was *offered* instead is worse: it
-        rewards being given very little, because at every supply level in the
-        menu the cell is already saturated, so twice the food does not buy twice
-        the growth. Neither denominator is sound while that is true. The real
-        repair is on the supply side -- diets scaled so the cell is genuinely
-        supply-limited -- and that is a re-tune of the whole food table.
+        The denominator is food **absorbed**, and that is right, though it took
+        a wrong turn to be sure of it. Charging for food *offered* instead
+        punishes a lineage for being given a large meal it had no way to use,
+        which is not a failing.
+
+        The reason more food does not simply buy more growth is worth stating,
+        because it looks like a bug and is not: the cell is **enzyme-limited**,
+        not supply-limited. Twenty times the food moves biomass by forty per
+        cent, because what the lineage can process is set by the eight marks it
+        has to spend, and marks are the scarce resource. A healthy cell also
+        cannot overeat -- transport is passive, so once its pools are full the
+        gradient closes and it stops absorbing. A cell with a constitution that
+        cannot clear something is the one that *can* overeat, because its pools
+        never come down. That asymmetry is the diet axis, and it is deliberate.
         """
         eaten = sum(self.eaten.values())
         if eaten <= 1e-9:

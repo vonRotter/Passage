@@ -28,6 +28,7 @@ import numpy as np
 from . import tuning
 from .bio.cell import Cell
 from .bio.flow import Flow
+from .bio.lineage import Lineage
 from .bio.marks import Kind, Marks
 from .bio.vigour import Vigour
 from .data import constitutions
@@ -138,6 +139,8 @@ def run_window(profile: str, seed: int, silent: bool = False,
     debug = overlay.Overlay()
     doctor = Diagnostician(flow.net)
     hand = margin.RegisterHand(flow.net)
+    lineage = Lineage(flow, marks, seed=seed)
+    selected = 0
     appendix = reference.Reference(flow.net, seed=seed + 9,
                                    constitution=flow.constitution)
 
@@ -155,13 +158,17 @@ def run_window(profile: str, seed: int, silent: bool = False,
                 running = False
             elif event.type == pygame.MOUSEMOTION:
                 hover = interact.at(event.pos, flow.net, plate.vessel_path)
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.pos[0] < layout_left():
+                picked = roster.node_at(event.pos, lineage)
+                if picked is not None:
+                    selected = picked
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 target = interact.at(event.pos, flow.net, plate.vessel_path)
                 if target is None:
                     pinned = None
                 elif target.kind == "gene" and event.button in (1, 3):
                     kind = Kind.ACTIVATING if event.button == 1 else Kind.SILENCING
-                    if marks.toggle(target.id, kind):
+                    if lineage.marks_of(selected).toggle(target.id, kind):
                         audio.scratch()
                     pinned = target
                 else:
@@ -176,7 +183,16 @@ def run_window(profile: str, seed: int, silent: bool = False,
                 elif reference_open and event.key in (pygame.K_LEFT, pygame.K_RIGHT):
                     appendix.turn(1 if event.key == pygame.K_RIGHT else -1)
                 elif event.key == pygame.K_g:
-                    marks.advance_generation()
+                    lineage.advance_generation()
+                elif event.key == pygame.K_d:
+                    born = lineage.divide(selected)
+                    if born is not None:
+                        audio.tick()
+                        selected = born
+                elif pygame.K_1 <= event.key <= pygame.K_9:
+                    want = event.key - pygame.K_1
+                    if want < len(lineage.members):
+                        selected = want
                 elif event.key == pygame.K_F3:
                     plate = Plate(seed=int(np.random.default_rng().integers(1 << 20)))
                     vis = FlowVis(plate)
@@ -187,12 +203,14 @@ def run_window(profile: str, seed: int, silent: bool = False,
             accumulator += min(frame, 0.25)
             while accumulator >= tuning.DT:
                 flow.step()
-                marks.update(tuning.DT)
+                lineage.update(tuning.DT)
                 vigour.update(tuning.DT)
                 accumulator -= tuning.DT
                 elapsed += tuning.DT
 
-        cell = Cell(flow, 0)
+        selected = min(selected, flow.n_cells - 1)
+        cell = Cell(flow, selected)
+        marks = lineage.marks_of(selected)
 
         if reference_open:
             screen.blit(appendix.surface(), (0, 0))
@@ -213,8 +231,15 @@ def run_window(profile: str, seed: int, silent: bool = False,
         vis.draw(screen, flow, cell, 0.0 if paused else frame)
         hand.draw_debt(screen, marks)
         hand.draw(screen, marks)
-        roster.draw(screen, [cell], 0)
-        panel.draw(screen, flow, cell, paused, elapsed, vigour)
+        # If the selected cell has a problem, say what dividing would do with
+        # it. Both daughters inherit the configuration, mistakes included.
+        trouble = doctor.bottlenecks(flow, marks, selected, 1)
+        warning = ""
+        if trouble and lineage.can_divide(selected):
+            warning = (f"both daughters would inherit this: "
+                       f"{trouble[0].headline.lower()}")
+        roster.draw(screen, lineage, selected, warning)
+        panel.draw(screen, flow, cell, paused, elapsed, vigour, lineage)
         margin.budget(screen, marks)
 
         # What the plate has to say, out on a leader line into the margin.
@@ -226,10 +251,10 @@ def run_window(profile: str, seed: int, silent: bool = False,
             row = (showing.id if showing.kind == "vessel"
                    else _row_for(flow.net, showing))
             if row:
-                margin.annotate(screen, doctor.of(flow, marks, row, 0),
+                margin.annotate(screen, doctor.of(flow, marks, row, selected),
                                 showing.anchor, seed=91)
         else:
-            worst = doctor.bottlenecks(flow, marks, 0, 1)
+            worst = doctor.bottlenecks(flow, marks, selected, 1)
             if worst:
                 margin.annotate(screen, worst[0],
                                 _anchor_for(plate, worst[0].row), seed=92)
@@ -240,6 +265,11 @@ def run_window(profile: str, seed: int, silent: bool = False,
     audio.close()
     pygame.quit()
     return 0
+
+
+def layout_left() -> int:
+    from .data.layout import ROSTER
+    return ROSTER[0] + ROSTER[2]
 
 
 def _row_for(net, target) -> str | None:
@@ -271,7 +301,8 @@ def tuning_window():
 
 
 def run_shot(profile: str, seed: int, ticks: int, path: str,
-             page: int | None = None, constitution: str | None = None) -> int:
+             page: int | None = None, constitution: str | None = None,
+             grow: bool = False, watch: int = 0) -> int:
     """Render one frame of a settled run to a PNG and exit.
 
     The plate is the deliverable of this milestone, so being able to look at it
@@ -289,11 +320,18 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
     pygame.init()
     pygame.display.set_mode((1, 1))
     flow, marks, vigour = build(profile, seed, constitution=constitution)
-    for _ in range(ticks):
+    lineage = Lineage(flow, marks, seed=seed)
+    for tick in range(ticks):
         flow.step()
-        marks.update(tuning.DT)
+        lineage.update(tuning.DT)
         vigour.update(tuning.DT)
-    cell = Cell(flow, 0)
+        if grow and tick % 600 == 0:
+            for member in list(lineage.living):
+                if lineage.divide(member.index) is not None:
+                    break
+    look = min(max(0, watch), flow.n_cells - 1)
+    cell = Cell(flow, look)
+    marks = lineage.marks_of(look)
     plate = Plate(seed=seed + 4)
     vis = FlowVis(plate)
     screen = pygame.Surface(tuning_window())
@@ -309,10 +347,15 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
         vis.draw(screen, flow, cell, 1 / 60)
         hand.draw_debt(screen, marks)
         hand.draw(screen, marks)
-        roster.draw(screen, [cell], 0)
-        panel.draw(screen, flow, cell, False, ticks / tuning.TICK_HZ, vigour)
+        trouble = doctor.bottlenecks(flow, marks, look, 1)
+        warning = (f"both daughters would inherit this: "
+                   f"{trouble[0].headline.lower()}"
+                   if trouble and lineage.can_divide(look) else "")
+        roster.draw(screen, lineage, look, warning)
+        panel.draw(screen, flow, cell, False, ticks / tuning.TICK_HZ, vigour,
+                   lineage)
         margin.budget(screen, marks)
-        worst = doctor.bottlenecks(flow, marks, 0, 1)
+        worst = doctor.bottlenecks(flow, marks, look, 1)
         if worst:
             margin.annotate(screen, worst[0],
                             _anchor_for(plate, worst[0].row), seed=92)
@@ -367,13 +410,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--constitution", default=None,
                         choices=sorted(constitutions.BY_ID),
                         help="the genome to deal this lineage")
+    parser.add_argument("--cell", type=int, default=0,
+                        help="with --shot: which cell of the lineage to look at")
+    parser.add_argument("--grow", action="store_true",
+                        help="with --shot: divide whenever the lineage can")
     parser.add_argument("--page", type=int, default=None,
                         help="with --shot: render a page of the reference instead")
     args = parser.parse_args(argv)
 
     if args.shot:
         return run_shot(args.profile, args.seed, args.ticks, args.shot,
-                        args.page, args.constitution)
+                        args.page, args.constitution, args.grow, args.cell)
     if args.headless:
         return run_headless(args.profile, args.seed, args.ticks, args.trace)
     return run_window(args.profile, args.seed, args.silent,

@@ -8,7 +8,7 @@ Everything you switch off stays off, in every cell that comes after.
 
 ---
 
-## State: M2 — the marks gate, the diet axis, and the constitution
+## State: M3 — division and inheritance
 
 The player marks genes on a printed register, and the plate says in plain words
 what is wrong, in what quantity, and whose fault it is. On top of that, a second
@@ -17,14 +17,48 @@ axis the build spec did not have: **relish against damage**.
 ```
 startgame.bat                              # Windows: double-click
 python -m passage                          # the plate, 1280x720
-python -m passage --shot page.png          # one frame to a PNG, no display needed
+python -m passage --shot page.png --grow   # one frame to a PNG, no display needed
 python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 100 tests
+python -m pytest                           # 113 tests
 ```
 
-`space` pauses · `tab` opens the appendix (five pages) · left click activates a gene, right
+`space` pauses · `tab` opens the appendix (five pages) · `d` divides the
+selected cell · `1`–`9` or a click on the tree selects one · left click activates a gene, right
 click silences it, the same button again lifts it · `g` advances a generation.
+
+### Inheritance
+
+A daughter does not start from a fresh page. She starts from her parent's page,
+in an older hand: every mark copied, each one remembering the generation it was
+originally placed in, each drawn one step fainter for every generation of
+inheritance it has travelled. What the player chose and what they were handed
+are different things on the register, and stay different.
+
+Three things make dividing a decision rather than a doubling:
+
+- **Pools are split, not copied.** Two half-stocked cells are worse at
+  everything than the one they came from, and have to grow back into it.
+- **It costs.** A large part of the accumulated biomass is spent becoming two
+  cells — booked to the ledger as structure, so the atoms are not destroyed and
+  the conservation sum still closes.
+- **The configuration comes too.** Dividing a badly-set cell makes two badly-set
+  cells, and the budget is spent twice over.
+
+Copying is not perfect. A mark occasionally fails to come across — rare, logged,
+and never silent, because a player who cannot see what changed has been cheated
+rather than challenged. A fixed mark never drifts.
+
+The tree is hand-ruled in the left margin in **pencil** rather than ink, because
+it is a record the player is keeping rather than part of the printed plate. Each
+cell is a small circle carrying its own colour, so the shape of the lineage and
+the health of it are one glance rather than two. It compresses as the lineage
+grows; a tree that ran off the page would be a worse record than a cramped one.
+
+The milestone's acceptance — *the player is visibly reluctant to divide a badly
+configured cell* — is a claim about a person and cannot be self-assessed. What
+can be, and is: the problem really is copied, copying really does cost, and the
+difference between chosen and inherited is on the page.
 
 ### Being technical and still readable
 
@@ -130,16 +164,20 @@ Nothing is hidden. Every constitution is printed in the appendix and the one
 this lineage holds is ticked, with what to do about it written underneath.
 Knowing which you have is the easy half.
 
-**Two things about this are not finished, and both are recorded in the code.**
-The score divides by food *absorbed*, which slightly rewards a lineage for its
-own intolerance; dividing by food *offered* is worse, because at every supply
-level in the menu the cell is already saturated, so twice the food does not buy
-twice the growth. Neither denominator is sound while that is true, and the real
-repair is on the supply side — diets scaled so the cell is genuinely
-supply-limited. That is a re-tune of the whole food table and it would disturb
-the mark tuning, so it wants doing deliberately rather than at the end of a long
-session. Milk intolerance is the weakest trait for the same reason: absorbing
-less of a food is a feeble lever next to being unable to clear one.
+**On why more food does not buy more growth.** It looks like a bug and it is
+not. The cell is **enzyme-limited**, not supply-limited: twenty times the food
+moves biomass by forty per cent, because what a lineage can process is set by
+the eight marks it has to spend. That is the design working — *marks are the
+scarce resource, and you cannot run everything.* It also means a healthy cell
+**cannot overeat**: transport is passive, so once its pools are full the
+gradient closes and it stops absorbing. The cell that *can* overeat is the one
+whose constitution stops a pool ever coming down. A body that regulates its
+intake against one that cannot — that asymmetry is the whole diet axis.
+
+Milk intolerance stays the weakest trait, and for a related reason: absorbing
+less of one food barely matters to a lineage that was enzyme-limited anyway,
+unless the diet leans heavily on it. On the dairy-led diet it does cost — 0.198
+against 0.216 — which is the right shape, just a quiet one.
 
 ---
 
@@ -153,10 +191,10 @@ has.
 ```
 python -m passage                          # the plate, 1280x720
 python -m passage --profile fermenting     # start from a given expression set
-python -m passage --shot page.png          # one frame to a PNG, no display needed
+python -m passage --shot page.png --grow   # one frame to a PNG, no display needed
 python -m passage.debug.testpage a0.png    # the A0 materials page
 python -m passage --headless --ticks 50000 --trace
-python -m pytest                           # 100 tests
+python -m pytest                           # 113 tests
 ```
 
 `--shot` exists because the art direction cannot be checked without looking at
@@ -423,6 +461,10 @@ passage/
     network.py      compiles data/ into matrices; refuses to build unbalanced
     flow.py         the solver — vectorised, no Python loop over reactions
     cell.py         a named view onto one row of the arrays
+    marks.py        the mark system: cost, persistence, and the price of change
+    diagnose.py     why a reaction is slow, in plain words, with numbers
+    lineage.py      division, inheritance, drift, and the tree
+    vigour.py       relish, damage, and what the lineage carries
   render/
     ink.py          the six primitives: paper, line, curve, wash, leader, hand
     palette.py      the six class washes and the one alarm colour
@@ -442,8 +484,10 @@ Two departures from the layout in the build spec: `render/chart.py` is
 a plate rather than a wall chart; and `render/panel.py` was added, because the
 spec puts the target and rates on the right but named no module for them.
 
-Still to come, in milestone order: `bio/marks.py`, `bio/lineage.py`,
-`bio/transport.py`, and audio.
+    data/foods.py, data/constitutions.py — the diet and the genome dealt
+
+Still to come, in milestone order: `bio/transport.py` (junctions between cells,
+M4), diet adoption (M5), and fixation (M6).
 
 ---
 
