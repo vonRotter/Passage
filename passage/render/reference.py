@@ -48,17 +48,20 @@ def equation(reaction: rxn_data.Reaction) -> str:
 class Reference:
     """Three pages, inked once each, turned with the arrow keys."""
 
-    TITLES = ("the substances", "the reactions", "the genes", "the diet")
+    TITLES = ("the substances", "the reactions", "the genes", "the diet",
+              "the constitution")
     SUBTITLES = (
         "what is in the cell, what makes it, and what uses it up",
         "every row balances on a real atom count; water and phosphate are "
         "present where the chemistry needs them but never limit anything",
         "what marking one would change, and what it idles at if you leave it",
-        "glede against damage — a game, not dietary advice",
+        "relish against damage, and what it leaves behind",
+        "the genome this lineage was dealt, which no mark will change",
     )
 
-    def __init__(self, net: Network, seed: int = 9) -> None:
+    def __init__(self, net: Network, seed: int = 9, constitution=None) -> None:
         self.net = net
+        self.constitution = constitution
         self.seed = seed
         self.page = 0
         self._pages: dict[int, pygame.Surface] = {}
@@ -92,7 +95,7 @@ class Reference:
         ink.ink_line(surface, (MARGIN, 78), (layout.WINDOW[0] - MARGIN, 78),
                      0.7, 5000 + page, palette.INK, 0.55)
         [self._substances, self._reactions, self._genes,
-         self._diet][page](surface)
+         self._diet, self._constitution][page](surface)
         ink.ink_line(surface, (MARGIN, 684), (layout.WINDOW[0] - MARGIN, 684),
                      0.6, 5100 + page, palette.INK, 0.4)
         return surface
@@ -164,21 +167,21 @@ class Reference:
         from ..data import foods as food_data
 
         typo.draw(surface,
-                  "Glede is pleasure, and it is a need rather than a vice: the "
-                  "first of the seven Norwegian dietary recommendations is to "
-                  "eat a varied diet, mostly from the plant kingdom, and to eat "
-                  "with pleasure. A lineage with no glede grows badly.",
+                  "Relish is the pleasure of eating, and it is a need rather "
+                  "than a vice. A lineage that never has any builds badly, so "
+                  "the question is not whether to have some but what you are "
+                  "willing to pay for it.",
                   (MARGIN, TOP - 4), 11, palette.INK, 0.2)
         typo.draw(surface,
                   "Damage goes as the square of intake above the forgiven "
                   "column, so one portion of something rich is nearly free and "
-                  "four are not. It never heals. Glede saturates, so past a "
+                  "four are not. It never heals. Relish saturates, so past a "
                   "point more indulgence buys no more happiness — only more "
                   "damage.",
                   (MARGIN, TOP + 16), 11, palette.PENCIL, 0.2)
 
         head = TOP + 52
-        for label, x in (("food", 0), ("enters at", 340), ("glede", 560),
+        for label, x in (("food", 0), ("enters at", 340), ("relish", 560),
                          ("harm", 640), ("forgiven", 716)):
             typo.caps(surface, label, (MARGIN + x, head), 8,
                       palette.INK_FAINT, 1.2)
@@ -191,7 +194,7 @@ class Reference:
             typo.draw(surface, food.label, (MARGIN, y), 12, palette.INK, 0.2)
             enters = ", ".join(met_data.BY_ID[m].label for m in food.supplies)
             typo.draw(surface, enters, (MARGIN + 340, y), 10, palette.PENCIL, 0.2)
-            typo.draw(surface, f"{food.glede:.2f}", (MARGIN + 596, y), 10,
+            typo.draw(surface, f"{food.relish:.2f}", (MARGIN + 596, y), 10,
                       palette.PENCIL, 0.0, align="right")
             harm = palette.ALARM if food.harm > 0.5 else palette.PENCIL
             typo.draw(surface, f"{food.harm:.2f}", (MARGIN + 676, y), 10,
@@ -199,21 +202,82 @@ class Reference:
             typo.draw(surface,
                       f"{food.forgiven:.2f}" if food.forgiven else "—",
                       (MARGIN + 762, y), 10, palette.PENCIL, 0.0, align="right")
-            typo.draw(surface, food.guideline, (MARGIN + 8, y + 14), 10,
+            typo.draw(surface, food.trait, (MARGIN + 8, y + 14), 10,
                       palette.INK_FAINT, 0.2)
             typo.draw(surface, food.note, (MARGIN + 8, y + 27), 10,
                       palette.PENCIL, 0.2)
             y += 46
 
-        note = ("Quantities and the seven recommendations: Helsedirektoratet "
-                "(2024, 15 August), Kostrådene; Nordic Council of Ministers "
-                "(2023), Nordic Nutrition Recommendations 2023. The numbers "
-                "here are chosen to make a metabolic toy behave the way those "
-                "guidelines describe at a population level. Nobody should take "
-                "a nutrition decision from a game.")
+        note = ("No diet on this page is the right one. Which of them suits a "
+                "lineage depends on the constitution it was dealt, and that is "
+                "printed on the next page. A cell that handles sugar badly and "
+                "a cell that handles fat badly do not want the same meal.")
         for i, line in enumerate(_wrap(note, 10, layout.WINDOW[0] - MARGIN * 2)):
             typo.draw(surface, line, (MARGIN, 646 + i * 13), 10,
                       palette.PENCIL, 0.2)
+
+
+    def _constitution(self, surface: pygame.Surface) -> None:
+        from ..data import constitutions as con_data
+
+        held = self.constitution.id if self.constitution else None
+        intro = ("Marks decide what is switched on. A constitution decides "
+                 "what switching it on is worth, and no amount of budget "
+                 "changes it. Mostly what it decides is what this lineage "
+                 "cannot clear — and a substance that sits high in a cell with "
+                 "no way to be rid of it is what does the damage. So there is "
+                 "no diet here that is simply correct. There is only the one "
+                 "that suits the body you were handed.")
+        for i, line in enumerate(_wrap(intro, 11,
+                                       layout.WINDOW[0] - MARGIN * 2)):
+            typo.draw(surface, line, (MARGIN, TOP - 8 + i * 15), 11,
+                      palette.INK, 0.2)
+
+        y = TOP + 40
+        for con in con_data.CONSTITUTIONS:
+            mine = con.id == held
+            if mine:
+                ink.hand_mark(surface, "tick", (MARGIN - 14, y + 6),
+                              seed=ink.seed_of(con.id, 13), size=9.0)
+            typo.draw(surface, con.label, (MARGIN, y), 12,
+                      palette.INK if mine else palette.INK_FAINT, 0.2)
+            typo.draw(surface, con.summary, (MARGIN + 250, y), 11,
+                      palette.PENCIL, 0.2)
+            typo.draw(surface, _effects(con), (MARGIN + 740, y), 10,
+                      palette.INK_FAINT, 0.2)
+            if mine:
+                for i, line in enumerate(_wrap(con.counsel, 10,
+                                               layout.WINDOW[0] - MARGIN * 2 - 20)):
+                    typo.draw(surface, line, (MARGIN + 12, y + 17 + i * 13), 10,
+                              palette.PENCIL, 0.2)
+                y += 17 + 13 * len(_wrap(con.counsel, 10,
+                                         layout.WINDOW[0] - MARGIN * 2 - 20))
+            else:
+                y += 20
+            y += 8
+
+        typo.draw(surface,
+                  "Nothing here is hidden: every constitution in the game is "
+                  "on this page, and the one this lineage holds is ticked. "
+                  "Knowing which you have is the easy half.",
+                  (MARGIN, 660), 10, palette.PENCIL, 0.2)
+
+
+def _effects(con) -> str:
+    """The trait in shorthand, so the page is a table and not a story."""
+    from ..data import metabolites as met
+    bits = []
+    for row, factor in con.capacity.items():
+        bits.append(f"{row.replace('_', ' ')} ×{factor:g}")
+    for mid, factor in con.holds.items():
+        bits.append(f"holds {met.BY_ID[mid].label} ×{factor:g}")
+    for mid, factor in con.affinity.items():
+        bits.append(f"needs {met.BY_ID[mid].label} ×{factor:g}")
+    if con.absorbs:
+        low = min(con.absorbs.values())
+        high = max(con.absorbs.values())
+        bits.append("takes up ×%g" % (low if low == high else high))
+    return " · ".join(bits) if bits else "—"
 
 
 def _wrap(text: str, size: int, width: float) -> list[str]:

@@ -123,7 +123,9 @@ class Diagnostician:
         enzyme = float(flow.enzyme[cell, n.row_gene[i]])
         sat = float(flow.saturation[cell, i])
         relief = 1.0 - float(flow.inhibition[cell, i])
-        share = enzyme * sat * relief
+        # The fourth factor, and the only one no mark can touch.
+        constitution = float(flow.capacity[cell, i])
+        share = constitution * enzyme * sat * relief
         # what a step of this size costs when throttled: a big reaction running
         # at half is a bigger problem than a small one stopped dead
         severity = float(n.base_rate[i]) * (1.0 - share)
@@ -134,7 +136,10 @@ class Diagnostician:
                           severity, share)
 
         worst = min((enzyme, "enzyme"), (sat, "substrate"), (relief, "product"),
-                    key=lambda pair: pair[0])[1]
+                    (constitution, "constitution"), key=lambda pair: pair[0])[1]
+        if worst == "constitution":
+            return self._constitutional_reason(flow, row_id, i, cell,
+                                               constitution, share, severity)
         if worst == "enzyme":
             return self._enzyme_reason(flow, marks, row_id, i, cell,
                                        enzyme, share, severity)
@@ -184,13 +189,36 @@ class Diagnostician:
             self._afford(marks, gene.label),
             severity, share, gene=gene.id)
 
+    def _constitutional_reason(self, flow, row_id, i, cell, capacity, share,
+                               severity) -> Reason:
+        """A bottleneck that is nobody's fault and no mark's business.
+
+        This is the one reason the player cannot act on directly, and saying so
+        plainly matters more than any other line the game produces: a player who
+        spends marks trying to fix a constitutional limit is losing budget to
+        something that was never going to move. What they can change is what the
+        lineage is being fed.
+        """
+        n = self.net
+        c = getattr(flow, "constitution", None)
+        who = f"{c.label}: {c.summary}. " if c is not None else ""
+        counsel = (c.counsel if c is not None and c.counsel else
+                   "Work around it rather than at it.")
+        return Reason(
+            row_id, "constitutional",
+            f"{n.rows[i].label} cannot run any faster in this lineage",
+            f"{who}This step has {capacity:.0%} of the capacity the chart "
+            f"shows, and that is the genome, not a mark. No amount of "
+            f"expression will lift it.",
+            counsel, severity, share)
+
     def _starved_reason(self, flow, marks, row_id, i, cell, share,
                         severity) -> Reason:
         n = self.net
         conc = flow.pools[cell]
         worst_mid, worst_mm = None, 2.0
         for j in np.flatnonzero(n.mask_in[i]):
-            mm = conc[j] / (n.km[j] + max(conc[j], 0.0))
+            mm = conc[j] / (flow.km[cell, j] + max(conc[j], 0.0))
             if mm < worst_mm:
                 worst_mm, worst_mid = float(mm), n.metabolites[j].id
 
@@ -201,15 +229,26 @@ class Diagnostician:
                                         worst_mm, share, severity)
         # how much would be needed to run freely, from the same curve the
         # solver uses: conc = Km * s / (1 - s)
-        wants = float(n.km[j]) * FREELY / (1.0 - FREELY)
+        wants = float(flow.km[cell, j]) * FREELY / (1.0 - FREELY)
         met = n.metabolites[j]
         supplier = self._best_supplier(flow, marks, worst_mid, cell)
+
+        # A raised Michaelis constant is constitutional, and it is worth saying
+        # so: this lineage needs more of the substance around than most does,
+        # and that changes what to do about the shortage.
+        standard = float(n.km[j])
+        poor = ""
+        if flow.km[cell, j] > standard * 1.15:
+            poor = (f" This lineage needs more of it around than most — "
+                    f"{flow.km[cell, j] / standard:.1f} times as much — and "
+                    f"that is constitutional.")
 
         return Reason(
             row_id, "starved",
             f"{n.rows[i].label} is starved of {met.label}",
             f"the cell holds {_plain(have)} of {met.label} and wants about "
-            f"{_plain(wants)} to run freely — {worst_mm:.0%} of the way there.",
+            f"{_plain(wants)} to run freely — {worst_mm:.0%} of the way "
+            f"there.{poor}",
             supplier,
             severity, share, metabolite=worst_mid)
 
@@ -249,7 +288,7 @@ class Diagnostician:
                           severity) -> Reason:
         n = self.net
         conc = flow.pools[cell]
-        fills = np.where(n.mask_out[i], conc / n.cap, -1.0)
+        fills = np.where(n.mask_out[i], conc / flow.cap[cell], -1.0)
         j = int(np.argmax(fills))
         met = n.metabolites[j]
         drain = self._best_drain(flow, marks, met.id, cell, exclude=i)
@@ -257,7 +296,7 @@ class Diagnostician:
             row_id, "backed_up",
             f"{n.rows[i].label} is backed up behind {met.label}",
             f"{met.label} is at {float(fills[j]):.0%} of its capacity "
-            f"({_plain(float(conc[j]))} of {_plain(float(n.cap[j]))}). A full "
+            f"({_plain(float(conc[j]))} of {_plain(float(flow.cap[cell, j]))}). A full "
             f"product pool pushes back on the step that fills it.",
             drain,
             severity, share, metabolite=met.id)
@@ -348,7 +387,7 @@ class Diagnostician:
         inside = float(flow.pools[cell, j])
         outside = float(flow.medium[j])
         rate = float(flow.x_rate[cell, k])
-        km = float(n.km[j])
+        km = float(flow.km[cell, j])
         drive = (outside / (km + outside)) - (inside / (km + inside))
         share = min(1.0, abs(drive) / 0.5)
         severity = float(n.x_base_rate[k]) * (1.0 - share) * 0.5

@@ -182,8 +182,8 @@ class Marks:
     def _apply(self) -> None:
         for i, gene in enumerate(self.net.genes):
             mark = self.marks.get(gene.id)
-            self.flow.target[self.cell, i] = (mark.target if mark
-                                              else gene.baseline)
+            self.flow.target[self.cell, i] = (
+                mark.target if mark else self.flow.baseline[self.cell, i])
 
     # -- inspection ----------------------------------------------------------
     def of(self, gene: str) -> Mark | None:

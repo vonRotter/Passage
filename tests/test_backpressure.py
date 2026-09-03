@@ -47,9 +47,14 @@ def time_to_half(flow, rows, before, limit=BOUND_TICKS):
 
 def test_blocking_pdh_slows_glycolysis_in_positional_order():
     """PDH is the gate out of glycolysis and shares no carrier shortcut with
-    the steps above it, so its blockage must travel strictly upstream."""
+    the steps above it, so its blockage must travel strictly upstream.
+
+    The chain stops at the membrane on purpose. Uptake is passive and the
+    medium is rich, so a jammed cell does not stop eating -- it keeps taking
+    sugar in and wasting it, which the next test is about.
+    """
     flow = settled()
-    chain = ["glycolysis_lower", "glycolysis_upper", "exchange_glucose"]
+    chain = ["glycolysis_lower", "glycolysis_upper"]
     before = {r: flow.rate_of(r) for r in chain}
     assert all(v > 1e-3 for v in before.values()), before
 
@@ -60,7 +65,7 @@ def test_blocking_pdh_slows_glycolysis_in_positional_order():
     assert flow.pool_of("pyruvate") > pyruvate_before, "the blocked substrate must back up"
     for row in chain:
         assert row in hit, f"{row} never slowed within {BOUND_TICKS} ticks"
-    assert hit["glycolysis_lower"] <= hit["glycolysis_upper"] <= hit["exchange_glucose"], hit
+    assert hit["glycolysis_lower"] <= hit["glycolysis_upper"], hit
 
 
 def test_blocking_the_respiratory_chain_reduces_every_nad_consumer():
@@ -84,12 +89,16 @@ def test_blocking_the_respiratory_chain_reduces_every_nad_consumer():
 def test_a_stall_backs_all_the_way_up_to_the_food_coming_in():
     """The point of the whole mechanism.
 
-    In a rich medium a blocked cell does not simply stop eating. Uptake is
+    In a rich medium a blocked cell barely stops eating at all. Uptake is
     passive, so as long as the medium holds more sugar than the cell does,
     sugar keeps arriving -- it just has nowhere to go. The pool above the block
-    fills, then the one above that, then the cell floods to its cap and begins
-    pouring the surplus away as waste. That is a truer statement of
-    backpressure than "uptake stops", and it is what actually happens.
+    fills, then the one above that, then the cell floods to its cap and pours
+    the surplus away as waste.
+
+    That is a truer statement of backpressure than "uptake stops", and it is
+    what actually happens. It is also the mechanism the whole diet axis rests
+    on: a cell cannot decline what surrounds it, which is why a diet can hurt
+    a body at all.
     """
     flow = settled()
     net = flow.net
@@ -101,7 +110,10 @@ def test_a_stall_backs_all_the_way_up_to_the_food_coming_in():
     for _ in range(BOUND_TICKS):
         flow.step()
 
-    assert flow.rate_of("exchange_glucose") < 0.5 * before, "uptake must fall"
+    # It falls, but nothing like to a halt: the gradient is still open.
+    assert flow.rate_of("exchange_glucose") < 0.8 * before, "uptake must fall"
+    assert flow.rate_of("exchange_glucose") > 0.2 * before, \
+        "and it must not stop -- a flooded cell keeps eating, which is the point"
     assert flow.pool_of("g3p") > 0.95 * net.cap[net.mi("g3p")], \
         "the metabolite immediately above the block must be the one that fills"
     assert flow.pool_of("glucose") > 0.95 * net.cap[net.mi("glucose")], \

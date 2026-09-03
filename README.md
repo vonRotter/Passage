@@ -8,11 +8,11 @@ Everything you switch off stays off, in every cell that comes after.
 
 ---
 
-## State: M2 — the marks gate, plus the diet axis
+## State: M2 — the marks gate, the diet axis, and the constitution
 
 The player marks genes on a printed register, and the plate says in plain words
 what is wrong, in what quantity, and whose fault it is. On top of that, a second
-axis the build spec did not have: **glede against damage**.
+axis the build spec did not have: **relish against damage**.
 
 ```
 startgame.bat                              # Windows: double-click
@@ -20,10 +20,10 @@ python -m passage                          # the plate, 1280x720
 python -m passage --shot page.png          # one frame to a PNG, no display needed
 python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 92 tests
+python -m pytest                           # 100 tests
 ```
 
-`space` pauses · `tab` opens the appendix · left click activates a gene, right
+`space` pauses · `tab` opens the appendix (five pages) · left click activates a gene, right
 click silences it, the same button again lifts it · `g` advances a generation.
 
 ### Being technical and still readable
@@ -63,54 +63,83 @@ reaction's inputs, the named product really is the fullest, the generation
 matches the mark, and the amount named as wanted comes from the same saturation
 curve the solver integrates.
 
-### Glede against damage
+### Relish against damage
 
-A second scoring axis, crossing yield. Not in the original spec; added because
-it is a better idea than anything the spec had for making the *choice of food*
-matter beyond its entry point.
+A second scoring axis, crossing yield. **Relish** is the pleasure of eating, and
+it is a *need* rather than a vice: a lineage that never has any builds badly, so
+the question is never whether to have some but what you are willing to pay.
 
-The design is anchored on something worth noticing: the first of the seven
-Norwegian dietary recommendations is *"Ha et variert kosthold, velg mest mat fra
-planteriket og **spis med glede**"* — eat with pleasure (Helsedirektoratet,
-2024). Pleasure is inside the advice, not opposed to it. So **glede is a need**:
-a lineage with none of it grows badly. The question is never whether to have
-some, but what you are willing to pay.
+- **Relish** saturates. Past a point, more indulgence buys no more happiness.
+- **Damage** has two sources. Rich food, going as the *square* of intake above a
+  forgiven threshold — one portion is nearly free, four cost sixteen times as
+  much. And **congestion**: a substance that simply sits high in a cell with no
+  way to clear it. The second is the larger, and it is what makes a constitution
+  matter.
+- **Vigour** is what is left. A worn-out lineage pays triple upkeep just to
+  exist and builds at forty per cent — which is how "you die earlier" is
+  expressed in a game with no lifespan counter. Damage never heals.
 
-Three parts, pulling against each other:
+Three diets at matched supply, over forty-five simulated minutes:
 
-- **Glede** saturates. Past a point, more indulgence buys no more happiness.
-- **Damage** goes as the *square* of intake above a forgiven threshold. One
-  portion of something rich is nearly free; four cost sixteen times as much. It
-  never heals.
-- **Vigour** is what is left. A worn-out lineage pays more upkeep simply to
-  exist, and builds worse — good for your mental health, and not for your RNA.
-
-Three diets, all supplying the **same total food**, over forty-five simulated
-minutes:
-
-| Diet | Biomass | Yield | Glede | Vigour | **Score** |
+| Diet | Biomass | Yield | Relish | Vigour | **Score** |
 |---|---|---|---|---|---|
-| standard — mostly plants, some fish, a little of what you like | 999 | 0.305 | 52% | 100% | **0.246** |
-| ascetic — plants and grain only | 860 | 0.265 | 35% | 100% | 0.197 |
-| indulgent — sweets, processed meat, butter | 1030 | 0.304 | 75% | 24% | 0.065 |
+| varied | 999 | 0.305 | 52% | 100% | **0.246** |
+| plain | 860 | 0.265 | 35% | 100% | 0.197 |
+| rich | 1030 | 0.304 | 75% | 24% | 0.065 |
 
-Read the first three columns and indulgence looks fine: it produced the *most*
-biomass, at the same yield, and had by far the best time doing it. It is only
-when the score asks what the lineage has **left** that the bill arrives. That is
-why vigour multiplies the score rather than sitting beside it — and it is the
-honest shape, because on output alone the two diets genuinely tie. The sweets
-lineage just burned itself down to get there.
+Read the first three columns and the rich diet looks fine: it produced the
+*most* biomass, at the same yield, and had the best time doing it. The bill only
+arrives when the score asks what the lineage has **left**. That is why vigour
+multiplies the score rather than sitting beside it — on output alone the two
+genuinely tie, and the rich lineage simply burned itself down to get there. It
+also leads for the first half of a run, deliberately: if it were not tempting
+there would be no choice to make.
 
-Indulgence also wins *early* — ahead on biomass for the first half of a run —
-and that is deliberate. If it were not tempting there would be no choice to
-make.
+### The constitution — a genome you did not choose
 
-The normalisation matters: without matching the total food, a result showing the
-rich diet losing would only show that it was also the larger one. `foods.supply`
-exists so the test can assert it.
+Every run deals the lineage a **constitution**: fixed traits that change how the
+same plate behaves. An enzyme with less capacity than the chart shows. A pool
+that holds less before it congests. A food this body cannot take up. None of it
+can be marked away — marks decide what is switched on, a constitution decides
+what switching it on is *worth* — and a bottleneck that traces to one says so
+plainly, because a player spending marks on a constitutional limit is losing
+budget to something that was never going to move.
 
-**This is a game, not dietary advice.** The numbers are chosen to make a
-metabolic toy behave the way the guidelines describe at a population level.
+What it does to the game is turn diet from a preference into a diagnosis. **The
+same meal nourishes one lineage and poisons another**, because a body is not
+harmed by what it eats so much as by what it cannot clear. Score by
+constitution and diet, forty-five simulated minutes, best in bold:
+
+| | standard | low sugar | low fat | low protein | creamy | sparse | plain | rich |
+|---|---|---|---|---|---|---|---|---|
+| even | 0.206 | 0.208 | 0.154 | 0.211 | **0.216** | 0.191 | 0.145 | 0.065 |
+| poor sugar handling | 0.163 | **0.207** | 0.051 | 0.125 | 0.168 | 0.188 | 0.096 | 0.038 |
+| poor fat handling | **0.172** | 0.057 | 0.152 | 0.063 | 0.168 | 0.163 | 0.143 | 0.039 |
+| reduced respiration | 0.148 | 0.143 | 0.120 | 0.149 | **0.155** | 0.138 | 0.110 | 0.051 |
+| poor nitrogen clearance | 0.131 | 0.126 | 0.079 | **0.158** | 0.138 | 0.123 | 0.069 | 0.050 |
+| no milk tolerance | 0.206 | 0.210 | 0.156 | **0.213** | 0.198 | 0.189 | 0.147 | 0.065 |
+| thrifty | 0.197 | **0.214** | 0.159 | 0.193 | 0.204 | 0.195 | 0.149 | 0.064 |
+
+Five of the six traits pick a different meal than an even constitution does, and
+the mismatches are brutal: a fat-averse lineage on the fat-bearing diet scores
+0.057 where an even one scores 0.208. Reduced respiration is the exception, and
+honestly so — it is a trait of *degree*, not of direction. It makes everything
+worse without changing what to eat, which is a real kind of trait to have.
+
+Nothing is hidden. Every constitution is printed in the appendix and the one
+this lineage holds is ticked, with what to do about it written underneath.
+Knowing which you have is the easy half.
+
+**Two things about this are not finished, and both are recorded in the code.**
+The score divides by food *absorbed*, which slightly rewards a lineage for its
+own intolerance; dividing by food *offered* is worse, because at every supply
+level in the menu the cell is already saturated, so twice the food does not buy
+twice the growth. Neither denominator is sound while that is true, and the real
+repair is on the supply side — diets scaled so the cell is genuinely
+supply-limited. That is a re-tune of the whole food table and it would disturb
+the mark tuning, so it wants doing deliberately rather than at the end of a long
+session. Milk intolerance is the weakest trait for the same reason: absorbing
+less of a food is a feeble lever next to being unable to clear one.
 
 ---
 
@@ -127,7 +156,7 @@ python -m passage --profile fermenting     # start from a given expression set
 python -m passage --shot page.png          # one frame to a PNG, no display needed
 python -m passage.debug.testpage a0.png    # the A0 materials page
 python -m passage --headless --ticks 50000 --trace
-python -m pytest                           # 92 tests
+python -m pytest                           # 100 tests
 ```
 
 `--shot` exists because the art direction cannot be checked without looking at
@@ -354,7 +383,7 @@ literature question. Five decisions were taken; each is reversible.
   points the design turns on — fibre fermented to short-chain fatty acids
   arriving at acetyl-CoA, fructose slipping past the regulation point, ethanol
   with its toxic intermediate — are what M5 is for. What is here already
-  carries the glede-against-damage axis, which was the part that needed
+  carries the relish-against-damage axis, which was the part that needed
   proving.
 - **Cells cannot die yet.** A worn-out lineage pays triple upkeep and builds at
   40%, but nothing kills it. Spec open question 2 recommends death, slow and

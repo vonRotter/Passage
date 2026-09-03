@@ -37,7 +37,7 @@ class Cell:
         """0..1, what the pool bar shows."""
         n = self.flow.net
         i = n.mi(mid)
-        return float(np.clip(self.pools[i] / n.cap[i], 0.0, 1.0))
+        return float(np.clip(self.pools[i] / self.flow.cap[self.index, i], 0.0, 1.0))
 
     # -- rates -------------------------------------------------------------
     @property
@@ -68,7 +68,7 @@ class Cell:
         wanted = wanted & ~n.buffered
         if not wanted.any():
             wanted = ~n.buffered
-        fills = np.where(wanted, self.pools / n.cap, np.inf)
+        fills = np.where(wanted, self.pools / self.flow.cap[self.index], np.inf)
         return n.metabolites[int(np.argmin(fills))]
 
     def spilling(self) -> list[Metabolite]:
@@ -102,7 +102,8 @@ class Cell:
                 continue
             idx = [i for i, m in enumerate(n.metabolites) if m.cls is cls]
             if idx:
-                reads[cls] = float(np.mean(self.pools[idx] / n.cap[idx]))
+                reads[cls] = float(np.mean(self.pools[idx]
+                                          / self.flow.cap[self.index, idx]))
         return reads
 
     def cast(self) -> tuple[dict[Class, float], float]:

@@ -114,18 +114,41 @@ CLASS_TINT_WEIGHT = {
 }
 TINT_REFERENCE = 1.5       # total weight at which the tint is at full strength
 
-# --- glede and damage (the diet axis) -------------------------------------
-# Glede is a need, not a vice: the first Norwegian dietary recommendation says
-# to eat with pleasure, and a lineage that never has any grows badly. What the
-# player is choosing is not whether to have some but what to pay for it.
-GLEDE_HALF = 0.30           # intake-weighted pleasure at which glede reads a half
-GLEDE_TAU = 30.0            # seconds for glede to follow what is being eaten
-GLEDE_FLOOR = 0.55          # anabolic capacity of a lineage with no pleasure at all
+# --- relish and damage (the diet axis) -------------------------------------
+# Relish is a need, not a vice: a lineage that never has any builds badly. What
+# the player is choosing is not whether to have some but what to pay for it.
+RELISH_HALF = 0.30           # intake-weighted pleasure at which relish reads a half
+RELISH_TAU = 30.0            # seconds for relish to follow what is being eaten
+RELISH_FLOOR = 0.55          # anabolic capacity of a lineage with no pleasure at all
 
 # Damage is superlinear in intake, which is the whole mechanism: one portion of
 # something rich is nearly free, four portions are not. Below a food's forgiven
 # intake it does no harm at all.
 DAMAGE_REFERENCE = 1.0      # the intake a harm coefficient is quoted against
+
+# Damage has a second source, and it is the one that makes a constitution
+# matter: material the cell cannot process backs up, overflows, and hurts. Which
+# food does that to a lineage depends on what that lineage cannot handle, so the
+# right diet stops being universal. This is mechanism rather than a table of
+# which foods are bad -- the spec asks for spillover to damage the cell past a
+# threshold, and this is that.
+SPILL_DAMAGE = 2.4          # damage per unit of material actually spilled
+
+# The larger source, and the truer one. Harm does not wait for a pool to
+# overflow: a substance that simply *sits* high, for a long time, in a cell that
+# cannot clear it, is what does the damage. Overflow is only the visible end of
+# it. So damage accrues on how far a pool sits above this mark, squared, which
+# means a pool at nine tenths is not nine times worse than one at a tenth -- it
+# is the only one that counts at all.
+CONGESTION_THRESHOLD = 0.85
+CONGESTION_DAMAGE = 22.0
+
+# How concentrated a diet makes the medium, per unit of supply rate. This is
+# the number that decides whether a cell can overeat. Transport is passive, so
+# the cell cannot refuse what surrounds it; set this too low and no diet can
+# ever hurt anybody, because the cell simply declines to absorb what it does
+# not need.
+MEDIUM_RICHNESS = 11.0
 DAMAGE_HALF = 240.0          # accumulated damage at which vigour reads a half
 UPKEEP_PENALTY = 2.6        # how much more a worn-out lineage pays just to exist
 
@@ -133,9 +156,9 @@ UPKEEP_PENALTY = 2.6        # how much more a worn-out lineage pays just to exis
 # anything. On raw output, and even on yield, a lineage living on sweets ties
 # with one eating well -- it simply burns itself to get there. What separates
 # them is the state they are in at the end, so vigour is a multiplier on the
-# score and not a footnote to it. Glede counts too, at a smaller weight: a
-# lineage that never had any pleasure did worse, and the guidelines say so.
-SCORE_GLEDE_FLOOR = 0.6     # share of the score that does not depend on pleasure
+# score and not a footnote to it. Relish counts too, at a smaller weight: a
+# lineage that never had any pleasure did worse, and the score should say so.
+SCORE_RELISH_FLOOR = 0.6     # share of the score that does not depend on pleasure
 
 # --- conservation tolerances ---------------------------------------------
 BALANCE_TOLERANCE = 1e-9        # atom balance, per reaction, at load

@@ -73,9 +73,22 @@ class Flow:
             self.target_medium[n.mi(mid)] = level
             self.perfused[n.mi(mid)] = 1.0
 
+        # The network is the chart, shared by everyone. These arrays are the
+        # individual: the same plate, run by a body that is not the standard
+        # one. A constitution writes them once at the start of a run and never
+        # again -- it is not a state the player can change, which is the point.
+        self.km = np.tile(n.km, (n_cells, 1))
+        self.cap = np.tile(n.cap, (n_cells, 1))
+        self.baseline = np.tile(n.baseline, (n_cells, 1))
+        self.capacity = np.ones((n_cells, n.n_internal))
+        self.x_capacity = np.ones((n_cells, n.n_exchange))
+
+        # And this one *is* dynamic: where the diet's consequences land.
+        self.rate_scale = np.ones((n_cells, n.n_internal))
+
         # expression is what the marks ask for; enzyme is what the cell has
         # managed to build so far. Nothing in this game responds instantly.
-        self.target = np.tile(n.baseline, (n_cells, 1))
+        self.target = self.baseline.copy()
         self.expression = self.target.copy()
         self.enzyme = self.expression.copy()
         # Per-gene multiplier on how slowly expression follows its target. A
@@ -83,8 +96,6 @@ class Flow:
         # marked for the first time (spec 3.3).
         self.relax_scale = np.ones((n_cells, n.n_genes))
 
-        # A per-cell, per-reaction multiplier on capacity. Nothing in the
-        # chemistry writes to it; it is where the diet's consequences land.
         self.rate_scale = np.ones((n_cells, n.n_internal))
         self.rate = np.zeros((n_cells, n.n_internal))
         self.x_rate = np.zeros((n_cells, n.n_exchange))
@@ -92,6 +103,7 @@ class Flow:
         self.saturation = np.ones((n_cells, n.n_internal))
         self.inhibition = np.zeros((n_cells, n.n_internal))
 
+        self.constitution = None
         self.ticks = 0
         self._dt = tuning.DT
         self.ledger = Ledger(
@@ -109,12 +121,12 @@ class Flow:
     def _mm(self, conc: np.ndarray) -> np.ndarray:
         """Michaelis-Menten availability, 0..1. Buffered substrates read 1."""
         n = self.net
-        mm = conc / (n.km + np.maximum(conc, 0.0))
+        mm = conc / (self.km + np.maximum(conc, 0.0))
         return np.where(n.buffered[None, :], 1.0, np.clip(mm, 0.0, 1.0))
 
     def _fill(self, conc: np.ndarray) -> np.ndarray:
         n = self.net
-        fill = np.clip(conc / n.cap, 0.0, 1.0)
+        fill = np.clip(conc / self.cap, 0.0, 1.0)
         return np.where(n.buffered[None, :], 0.0, fill)
 
     # -- the tick ----------------------------------------------------------
@@ -142,7 +154,7 @@ class Flow:
                               0.0), axis=2)
         inh = np.clip(inh, 0.0, 1.0) * tuning.INHIBITION_CEILING
 
-        rate = (n.base_rate[None, :] * self.rate_scale
+        rate = (n.base_rate[None, :] * self.capacity * self.rate_scale
                 * self.enzyme[:, n.row_gene] * sat * (1.0 - inh))
         rate = self._limit(rate, n.s_in, self.pools, dt)
 
@@ -194,10 +206,11 @@ class Flow:
         idx = n.x_metabolite
         cell_conc = self.pools[:, idx]                              # (C, X)
         med_conc = np.broadcast_to(self.medium[idx], cell_conc.shape)
-        km = n.km[idx][None, :]
+        km = self.km[:, idx]
 
         drive = (med_conc / (km + med_conc)) - (cell_conc / (km + cell_conc))
-        rate = n.x_base_rate[None, :] * self.enzyme[:, n.x_gene] * drive
+        rate = (n.x_base_rate[None, :] * self.x_capacity
+                * self.enzyme[:, n.x_gene] * drive)
         moved = rate * dt                                           # + into cell
 
         # never take more than the source holds. Cells draw independently from
@@ -248,7 +261,7 @@ class Flow:
         (spec 3.7).
         """
         n = self.net
-        over = np.maximum(self.pools - n.cap[None, :], 0.0)
+        over = np.maximum(self.pools - self.cap, 0.0)
         over = np.where(n.buffered[None, :], 0.0, over) * tuning.SPILL_FRACTION
         self.pools -= over
         self.ledger.spilled += over.sum(axis=0)
@@ -277,6 +290,30 @@ class Flow:
         self.enzyme += (self.expression - self.enzyme) * b
 
     # -- inspection --------------------------------------------------------
+    def constitute(self, constitution) -> None:
+        """Deal this lineage its genome. Once, at the start, and never again.
+
+        Everything here writes to the *individual* arrays rather than to the
+        network, because the chart is the same for everyone and the body is not.
+        No mark can undo any of it, which is what separates a constitution from
+        a decision.
+        """
+        n = self.net
+        for row_id, factor in constitution.capacity.items():
+            i = n.ri(row_id)
+            if n.rows[i].exchange:
+                self.x_capacity[:, i - n.n_internal] *= factor
+            else:
+                self.capacity[:, i] *= factor
+        for mid, factor in constitution.affinity.items():
+            self.km[:, n.mi(mid)] *= factor
+        for mid, factor in constitution.holds.items():
+            self.cap[:, n.mi(mid)] *= factor
+        for gene, level in constitution.baseline.items():
+            self.baseline[:, n.gi(gene)] = level
+            self.target[:, n.gi(gene)] = level
+        self.constitution = constitution
+
     def settle(self) -> None:
         """Snap expression and enzyme to whatever the marks currently ask for.
 

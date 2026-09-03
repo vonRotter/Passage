@@ -49,6 +49,11 @@ class Metabolite:
     km: float = 5.0
     buffered: bool = False
     inhibits: bool = True
+    #: Whether sitting full does the cell harm. A charged adenylate pool and a
+    #: cell full of oxygen are health, not disease, and the product the lineage
+    #: is trying to make is the point of the exercise. Everything else backing
+    #: up is a substance with nowhere to go.
+    congests: bool = True
     note: str = ""
 
     @property
@@ -82,7 +87,7 @@ METABOLITES: list[Metabolite] = [
     _m("glutamate", "glutamate", {"C": 5, "H": 9, "N": 1, "O": 4}, Class.AMINO_ACIDS,
        cap=30.0, km=3.0),
     _m("biomass", "biomass", {"C": 9, "H": 13, "N": 1, "O": 6}, Class.AMINO_ACIDS,
-       cap=6000.0, km=10.0,
+       cap=6000.0, km=10.0, congests=False,
        note="one lumped unit of new cell material; what division is paid for in"),
 
     # --- energy carriers: two conserved pairs ---------------------------
@@ -93,16 +98,17 @@ METABOLITES: list[Metabolite] = [
     # energy charge twice, and the doubled grip clamps the whole plate into a
     # low-flux equilibrium that no mark can lift. The same holds for NAD+/NADH.
     _m("atp", "ATP", {"C": 10, "H": 16, "N": 5, "O": 13, "P": 3}, Class.ENERGY,
-       cap=50.0, km=2.0, inhibits=False),
+       cap=50.0, km=2.0, inhibits=False, congests=False),
     _m("adp", "ADP", {"C": 10, "H": 15, "N": 5, "O": 10, "P": 2}, Class.ENERGY,
-       cap=50.0, km=2.0, inhibits=False),
+       cap=50.0, km=2.0, inhibits=False, congests=False),
     _m("nad", "NAD+", {"C": 21, "H": 26, "N": 7, "O": 14, "P": 2}, Class.ENERGY,
-       cap=20.0, km=1.0, inhibits=False),
+       cap=20.0, km=1.0, inhibits=False, congests=False),
     _m("nadh", "NADH", {"C": 21, "H": 28, "N": 7, "O": 14, "P": 2}, Class.ENERGY,
-       cap=20.0, km=1.0, inhibits=False),
+       cap=20.0, km=1.0, inhibits=False, congests=False),
 
     # --- gases ----------------------------------------------------------
-    _m("o2", "oxygen", {"O": 2}, Class.GASES, cap=30.0, km=1.0),
+    _m("o2", "oxygen", {"O": 2}, Class.GASES, cap=30.0, km=1.0,
+       congests=False),
     _m("co2", "carbon dioxide", {"C": 1, "O": 2}, Class.GASES, cap=30.0, km=0.5,
        note="also the carboxylation substrate; vent it too hard and anaplerosis starves"),
 

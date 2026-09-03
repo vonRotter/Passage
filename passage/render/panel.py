@@ -35,20 +35,25 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
     x = layout.PANEL[0] + 18
     right = layout.WINDOW[0] - 20
 
-    typo.caps(surface, "target", (x, 62), 9, palette.INK_FAINT, 1.6)
-    typo.draw(surface, "biomass", (x, 78), 13, palette.INK, 0.3)
-    typo.draw(surface, f"{cell.pool('biomass'):.1f}", (right, 78), 13,
+    constitution = getattr(flow, "constitution", None)
+    if constitution is not None:
+        typo.caps(surface, "constitution", (x, 44), 9, palette.INK_FAINT, 1.6)
+        typo.draw(surface, constitution.label, (x, 58), 11, palette.INK, 0.2)
+
+    typo.caps(surface, "target", (x, 86), 9, palette.INK_FAINT, 1.6)
+    typo.draw(surface, "biomass", (x, 102), 13, palette.INK, 0.3)
+    typo.draw(surface, f"{cell.pool('biomass'):.0f}", (right, 102), 13,
               palette.INK, 0.0, align="right")
 
-    typo.caps(surface, "energy charge", (x, 108), 9, palette.INK_FAINT, 1.6)
+    typo.caps(surface, "energy charge", (x, 132), 9, palette.INK_FAINT, 1.6)
     charge = cell.energy_charge()
-    typo.draw(surface, f"{charge:.0%}", (right, 104), 13,
+    typo.draw(surface, f"{charge:.0%}", (right, 128), 13,
               palette.INK if charge > 0.2 else palette.ALARM, 0.0, align="right")
 
-    typo.caps(surface, "rates", (x, 146), 9, palette.INK_FAINT, 1.6)
-    ink.ink_line(surface, (x, 160), (right, 160), 0.5, 71, palette.INK, 0.4)
+    typo.caps(surface, "rates", (x, 164), 9, palette.INK_FAINT, 1.6)
+    ink.ink_line(surface, (x, 178), (right, 178), 0.5, 71, palette.INK, 0.4)
     for i, (row_id, label) in enumerate(WATCH):
-        y = 170 + i * 20
+        y = 188 + i * 20
         typo.draw(surface, label, (x, y), 11, palette.INK, 0.2)
         try:
             rate = flow.rate_of(row_id, cell.index)
@@ -68,9 +73,8 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
             ("yield", f"{cell.pool('biomass') / used:.3f}" if used > 1e-6 else "--"),
             ("elapsed", f"{elapsed:.0f}s")]
     if vigour is not None:
-        eaten = sum(vigour.eaten.values())
-        rows = [("food eaten", f"{eaten:.0f}"),
-                ("glede", f"{vigour.glede:.0%}"),
+        rows = [("food eaten", f"{sum(vigour.eaten.values()):.0f}"),
+                ("relish", f"{vigour.relish:.0%}"),
                 ("vigour", f"{vigour.vigour:.0%}"),
                 ("score", f"{vigour.score(cell.pool('biomass')):.3f}")]
     for i, (label, value) in enumerate(rows):

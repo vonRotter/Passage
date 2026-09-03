@@ -30,6 +30,7 @@ from .bio.cell import Cell
 from .bio.flow import Flow
 from .bio.marks import Kind, Marks
 from .bio.vigour import Vigour
+from .data import constitutions
 from .data.metabolites import Class, POOLED
 
 #: Opening books: mark sets a player could actually place, within the budget of
@@ -53,9 +54,12 @@ PROFILES: dict[str, list[tuple[str, str]]] = {
 
 
 def build(profile: str, seed: int,
-          diet: dict[str, float] | None = None) -> tuple[Flow, Marks, Vigour]:
-    """A cell, the marks on it, and what it is being fed."""
+          diet: dict[str, float] | None = None,
+          constitution: str | None = None) -> tuple[Flow, Marks, Vigour]:
+    """A cell, the genome it was dealt, the marks on it, and what it is fed."""
     flow = Flow(n_cells=1, seed=seed)
+    flow.constitute(constitutions.BY_ID[constitution] if constitution
+                    else constitutions.BY_ID[constitutions.DEFAULT])
     vigour = Vigour(flow, diet)
     marks = Marks(flow, 0)
     for gene, sign in PROFILES[profile]:
@@ -108,7 +112,8 @@ KEY_HELP = """
 """
 
 
-def run_window(profile: str, seed: int, silent: bool = False) -> int:
+def run_window(profile: str, seed: int, silent: bool = False,
+               constitution: str | None = None) -> int:
     """The game loop. Sim at a fixed 20 Hz, render at 60."""
     os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
     import pygame
@@ -127,13 +132,14 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
     pygame.display.set_caption("Passage")
     clock = pygame.time.Clock()
 
-    flow, marks, vigour = build(profile, seed)
+    flow, marks, vigour = build(profile, seed, constitution=constitution)
     plate = Plate(seed=seed + 4)
     vis = FlowVis(plate)
     debug = overlay.Overlay()
     doctor = Diagnostician(flow.net)
     hand = margin.RegisterHand(flow.net)
-    appendix = reference.Reference(flow.net, seed=seed + 9)
+    appendix = reference.Reference(flow.net, seed=seed + 9,
+                                   constitution=flow.constitution)
 
     hover: interact.Target | None = None
     pinned: interact.Target | None = None
@@ -265,7 +271,7 @@ def tuning_window():
 
 
 def run_shot(profile: str, seed: int, ticks: int, path: str,
-             page: int | None = None) -> int:
+             page: int | None = None, constitution: str | None = None) -> int:
     """Render one frame of a settled run to a PNG and exit.
 
     The plate is the deliverable of this milestone, so being able to look at it
@@ -282,7 +288,7 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
 
     pygame.init()
     pygame.display.set_mode((1, 1))
-    flow, marks, vigour = build(profile, seed)
+    flow, marks, vigour = build(profile, seed, constitution=constitution)
     for _ in range(ticks):
         flow.step()
         marks.update(tuning.DT)
@@ -292,7 +298,8 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
     vis = FlowVis(plate)
     screen = pygame.Surface(tuning_window())
     if page is not None:
-        appendix = reference.Reference(flow.net, seed=seed + 9)
+        appendix = reference.Reference(flow.net, seed=seed + 9,
+                                   constitution=flow.constitution)
         appendix.page = page
         screen.blit(appendix.surface(), (0, 0))
     else:
@@ -338,7 +345,7 @@ def run_headless(profile: str, seed: int, ticks: int, trace: bool) -> int:
     print_rates(flow)
     print_ledger(flow)
     print(f"\n  {cell!r}  dominant={cell.dominant_class().value}")
-    print(f"  glede {vigour.glede:.2f}   vigour {vigour.vigour:.2f}   "
+    print(f"  relish {vigour.relish:.2f}   vigour {vigour.vigour:.2f}   "
           f"score {vigour.score(cell.pool('biomass')):.3f}   {vigour.summary()}")
     return 0
 
@@ -357,16 +364,20 @@ def main(argv: list[str] | None = None) -> int:
                         help="render one frame to a PNG and exit")
     parser.add_argument("--silent", action="store_true",
                         help="no audio, even where a device is available")
+    parser.add_argument("--constitution", default=None,
+                        choices=sorted(constitutions.BY_ID),
+                        help="the genome to deal this lineage")
     parser.add_argument("--page", type=int, default=None,
                         help="with --shot: render a page of the reference instead")
     args = parser.parse_args(argv)
 
     if args.shot:
         return run_shot(args.profile, args.seed, args.ticks, args.shot,
-                        args.page)
+                        args.page, args.constitution)
     if args.headless:
         return run_headless(args.profile, args.seed, args.ticks, args.trace)
-    return run_window(args.profile, args.seed, args.silent)
+    return run_window(args.profile, args.seed, args.silent,
+                      args.constitution)
 
 
 if __name__ == "__main__":

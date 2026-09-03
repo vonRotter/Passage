@@ -1,9 +1,9 @@
-"""The diet axis: glede against damage, and why moderation wins.
+"""The diet axis: relish against damage, and why moderation wins.
 
 The design claim being tested is not "healthy food is good". It is a specific
 mechanical shape, and each half of it can fail on its own:
 
-* glede is a **need**, so a joyless diet loses to a moderate one even though it
+* relish is a **need**, so a joyless diet loses to a moderate one even though it
   does no damage at all;
 * damage is **superlinear**, so a small amount of something rich costs almost
   nothing and a large amount costs a great deal;
@@ -76,10 +76,10 @@ def test_indulgence_wins_early_and_loses_late():
 
 
 def test_a_joyless_lineage_builds_worse_than_a_happy_one():
-    """Glede is a need. The first recommendation says to eat with pleasure."""
+    """Relish is a need. The first recommendation says to eat with pleasure."""
     ascetic, _, _ = run(foods.ASCETIC, ticks=9_000)
     standard, _, _ = run(foods.STANDARD, ticks=9_000)
-    assert standard.glede > ascetic.glede
+    assert standard.relish > ascetic.relish
     assert standard.anabolic_multiplier > ascetic.anabolic_multiplier
     assert ascetic.damage == pytest.approx(0.0, abs=1e-6)
 
