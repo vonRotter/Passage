@@ -181,8 +181,7 @@ class Diagnostician:
             f"{n.rows[i].label} was never switched on",
             f"enzyme at {enzyme:.0%}. {gene.label} is unmarked and idling at "
             f"its baseline of {gene.baseline:.0%}.",
-            f"Place an activating mark on {gene.label}. It costs one of your "
-            f"{tuning.MARK_BUDGET}.",
+            self._afford(marks, gene.label),
             severity, share, gene=gene.id)
 
     def _starved_reason(self, flow, marks, row_id, i, cell, share,
@@ -197,6 +196,9 @@ class Diagnostician:
 
         j = n.mi(worst_mid)
         have = float(conc[j])
+        if not n.inhibits[j]:
+            return self._carrier_reason(flow, marks, row_id, i, cell, j,
+                                        worst_mm, share, severity)
         # how much would be needed to run freely, from the same curve the
         # solver uses: conc = Km * s / (1 - s)
         wants = float(n.km[j]) * FREELY / (1.0 - FREELY)
@@ -210,6 +212,38 @@ class Diagnostician:
             f"{_plain(wants)} to run freely — {worst_mm:.0%} of the way there.",
             supplier,
             severity, share, metabolite=worst_mid)
+
+    #: The two conserved pairs. Being short of one half means the other half is
+    #: piled up, and the fix is never "make more" -- it is to spend the partner.
+    PARTNER = {"adp": "atp", "atp": "adp", "nad": "nadh", "nadh": "nad"}
+
+    def _carrier_reason(self, flow, marks, row_id, i, cell, j, mm, share,
+                        severity) -> Reason:
+        """Being short of a carrier is a ratio problem, not a supply problem.
+
+        Telling a player they need more ADP is true and useless: ADP is not
+        made, it is what is left when ATP is spent. So the explanation names the
+        partner, says which way the pair has tipped, and points at the reaction
+        that would tip it back.
+        """
+        n = self.net
+        met = n.metabolites[j]
+        partner_id = self.PARTNER[met.id]
+        partner = n.metabolites[n.mi(partner_id)]
+        have = float(flow.pools[cell, j])
+        held = float(flow.pools[cell, n.mi(partner_id)])
+        total = have + held
+        spender = self._best_drain(flow, marks, partner_id, cell, exclude=-1)
+        return Reason(
+            row_id, "starved",
+            f"{n.rows[i].label} is short of {met.label}",
+            f"{met.label} and {partner.label} are one closed pool: "
+            f"{_plain(have)} against {_plain(held)}, so "
+            f"{held / total:.0%} of it is sitting as {partner.label}. "
+            f"{met.label} is not made — it is what is left when "
+            f"{partner.label} gets spent, and nothing here is spending it.",
+            spender,
+            severity, share, metabolite=met.id)
 
     def _backed_up_reason(self, flow, marks, row_id, i, cell, share,
                           severity) -> Reason:
@@ -259,8 +293,8 @@ class Diagnostician:
         if mark:
             return (f"{made_by} is what makes it and {gene.label} is {state}; "
                     f"the shortage is further upstream.")
-        return (f"{made_by} is what makes it. {gene.label} is {state} — "
-                f"activate it and this clears.")
+        return (f"{made_by} is what makes it, and {gene.label} is {state}. "
+                + self._afford(marks, gene.label))
 
     def _best_drain(self, flow, marks, mid: str, cell: int, exclude: int) -> str:
         """Name the gene that would clear what this reaction is backed up behind."""
@@ -280,9 +314,31 @@ class Diagnostician:
         if mark and mark.kind is Kind.SILENCING:
             return (f"{n.rows[best].label} is what clears it, and you silenced "
                     f"{gene.label} in generation {mark.generation}. That is the cause.")
-        return (f"{n.rows[best].label} is what clears it. {gene.label} is at "
-                f"{float(flow.enzyme[cell, n.row_gene[best]]):.0%} — "
-                f"activate it and the queue drains.")
+        return (f"{n.rows[best].label} is what clears it, and {gene.label} is "
+                f"at {float(flow.enzyme[cell, n.row_gene[best]]):.0%}. "
+                + self._afford(marks, gene.label))
+
+    @staticmethod
+    def _afford(marks: Marks | None, subject: str) -> str:
+        """Advice a player cannot act on is worse than none.
+
+        With the budget full, "activate this" is not a remedy -- it is a
+        reminder that something has to be given up first. So the note changes
+        mood, and names the mark that would be cheapest to lift.
+        """
+        if marks is None or marks.can_place():
+            return f"Activate {subject}. It costs one of your eight."
+        cheapest = min(marks.marks.values(),
+                       key=lambda m: (m.fixed, m.generation), default=None)
+        if cheapest is None:
+            return (f"Activating {subject} would clear it, but your whole "
+                    f"budget is spoken for by debt. There is nothing to do but "
+                    f"wait for it to decay.")
+        label = marks.net.genes[marks.net.gi(cheapest.gene)].label
+        return (f"Activating {subject} would clear it, but all eight marks are "
+                f"placed. Something has to come off first, and lifting costs "
+                f"more than placing did — the oldest is {label}, from "
+                f"generation {cheapest.generation}.")
 
     # -- exchange -------------------------------------------------------------
     def _exchange(self, flow: Flow, row_id: str, k: int, cell: int) -> Reason:

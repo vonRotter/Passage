@@ -58,8 +58,8 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
                   palette.INK if abs(rate) > 1e-3 else palette.INK_FAINT,
                   0.0, align="right")
 
-    typo.caps(surface, "ledger", (x, 336), 9, palette.INK_FAINT, 1.6)
-    ink.ink_line(surface, (x, 350), (right, 350), 0.5, 72, palette.INK, 0.4)
+    typo.caps(surface, "ledger", (x, 330), 9, palette.INK_FAINT, 1.6)
+    ink.ink_line(surface, (x, 344), (right, 344), 0.5, 72, palette.INK, 0.4)
     net = flow.net
     used = float(flow.ledger.supplied[net.mi("glucose")])
     waste = float(flow.ledger.spilled.sum())
@@ -68,13 +68,11 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
             ("yield", f"{cell.pool('biomass') / used:.3f}" if used > 1e-6 else "--"),
             ("elapsed", f"{elapsed:.0f}s")]
     for i, (label, value) in enumerate(rows):
-        y = 360 + i * 20
+        y = 354 + i * 20
         typo.draw(surface, label, (x, y), 11, palette.INK, 0.2)
         typo.draw(surface, value, (right, y), 11, palette.INK, 0.0, align="right")
 
     if paused:
-        typo.caps(surface, "paused", (x, 464), 11, palette.INK, 2.4)
-        ink.hand_mark(surface, "underline", (x + 34, 482), seed=88, size=36,
-                      colour=palette.PENCIL)
-    typo.draw(surface, "space  pause     f1  rates     f2  balance",
-              (x, 668), 9, palette.PENCIL, 0.2)
+        typo.caps(surface, "paused", (right - 54, 448), 11, palette.INK, 2.4)
+    typo.draw(surface, "space pause · tab reference · g next generation",
+              (x, 704), 9, palette.PENCIL, 0.2)

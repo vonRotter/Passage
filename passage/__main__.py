@@ -112,7 +112,9 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
 
     from .render.flow_vis import FlowVis
     from .render.plate import Plate
-    from .render import panel, roster
+    from .render import interact, margin, panel, reference, roster
+    from .bio.diagnose import Diagnostician
+    from .bio.marks import Kind
     from .debug import overlay
     from .sound import Sound
 
@@ -126,7 +128,13 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
     plate = Plate(seed=seed + 4)
     vis = FlowVis(plate)
     debug = overlay.Overlay()
+    doctor = Diagnostician(flow.net)
+    hand = margin.RegisterHand(flow.net)
+    appendix = reference.Reference(flow.net, seed=seed + 9)
 
+    hover: interact.Target | None = None
+    pinned: interact.Target | None = None
+    reference_open = False
     paused = False
     accumulator = 0.0
     elapsed = 0.0
@@ -136,11 +144,30 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.MOUSEMOTION:
+                hover = interact.at(event.pos, flow.net, plate.vessel_path)
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                target = interact.at(event.pos, flow.net, plate.vessel_path)
+                if target is None:
+                    pinned = None
+                elif target.kind == "gene" and event.button in (1, 3):
+                    kind = Kind.ACTIVATING if event.button == 1 else Kind.SILENCING
+                    if marks.toggle(target.id, kind):
+                        audio.scratch()
+                    pinned = target
+                else:
+                    pinned = None if pinned == target else target
             elif event.type == pygame.KEYDOWN:
                 if event.key in (pygame.K_ESCAPE, pygame.K_q):
                     running = False
                 elif event.key == pygame.K_SPACE:
                     paused = not paused
+                elif event.key == pygame.K_TAB:
+                    reference_open = not reference_open
+                elif reference_open and event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                    appendix.turn(1 if event.key == pygame.K_RIGHT else -1)
+                elif event.key == pygame.K_g:
+                    marks.advance_generation()
                 elif event.key == pygame.K_F3:
                     plate = Plate(seed=int(np.random.default_rng().integers(1 << 20)))
                     vis = FlowVis(plate)
@@ -157,6 +184,12 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
 
         cell = Cell(flow, 0)
 
+        if reference_open:
+            screen.blit(appendix.surface(), (0, 0))
+            audio.update(frame)
+            pygame.display.flip()
+            continue
+
         # The hum is the game's most useful instrument: its pitch follows total
         # throughput, so the factory can be heard slowing before it is seen.
         # Under a pause it holds where it is rather than dropping to silence --
@@ -168,8 +201,29 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
         audio.update(frame)
         screen.blit(plate.surface, (0, 0))
         vis.draw(screen, flow, cell, 0.0 if paused else frame)
+        hand.draw_debt(screen, marks)
+        hand.draw(screen, marks)
         roster.draw(screen, [cell], 0)
         panel.draw(screen, flow, cell, paused, elapsed)
+        margin.budget(screen, marks)
+
+        # What the plate has to say, out on a leader line into the margin.
+        # A pinned note stays put; otherwise the worst bottleneck speaks up on
+        # its own, because a player should not have to go looking for the thing
+        # that is wrong.
+        showing = pinned or hover
+        if showing is not None:
+            row = (showing.id if showing.kind == "vessel"
+                   else _row_for(flow.net, showing))
+            if row:
+                margin.annotate(screen, doctor.of(flow, marks, row, 0),
+                                showing.anchor, seed=91)
+        else:
+            worst = doctor.bottlenecks(flow, marks, 0, 1)
+            if worst:
+                margin.annotate(screen, worst[0],
+                                _anchor_for(plate, worst[0].row), seed=92)
+
         debug.draw(screen, flow, cell, plate, clock.get_fps())
         pygame.display.flip()
 
@@ -178,12 +232,36 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
     return 0
 
 
+def _row_for(net, target) -> str | None:
+    """The reaction a pool or a gene is best explained through."""
+    if target.kind == "vessel":
+        return target.id
+    if target.kind == "gene":
+        for row in net.rows:
+            if row.gene == target.id and not row.reverse:
+                return row.id
+        return None
+    # a pool: the step that consumes it and is hurting most for it
+    for row in net.rows:
+        if row.reverse or row.exchange:
+            continue
+        if net.s_in[net.ri(row.id), net.mi(target.id)] > 0:
+            return row.id
+    return None
+
+
+def _anchor_for(plate, row_id: str):
+    path = plate.vessel_path(row_id)
+    return path[len(path) // 2]
+
+
 def tuning_window():
     from .data.layout import WINDOW
     return WINDOW
 
 
-def run_shot(profile: str, seed: int, ticks: int, path: str) -> int:
+def run_shot(profile: str, seed: int, ticks: int, path: str,
+             page: int | None = None) -> int:
     """Render one frame of a settled run to a PNG and exit.
 
     The plate is the deliverable of this milestone, so being able to look at it
@@ -195,7 +273,8 @@ def run_shot(profile: str, seed: int, ticks: int, path: str) -> int:
 
     from .render.flow_vis import FlowVis
     from .render.plate import Plate
-    from .render import panel, roster
+    from .render import margin, panel, reference, roster
+    from .bio.diagnose import Diagnostician
 
     pygame.init()
     pygame.display.set_mode((1, 1))
@@ -207,10 +286,24 @@ def run_shot(profile: str, seed: int, ticks: int, path: str) -> int:
     plate = Plate(seed=seed + 4)
     vis = FlowVis(plate)
     screen = pygame.Surface(tuning_window())
-    screen.blit(plate.surface, (0, 0))
-    vis.draw(screen, flow, cell, 1 / 60)
-    roster.draw(screen, [cell], 0)
-    panel.draw(screen, flow, cell, False, ticks / tuning.TICK_HZ)
+    if page is not None:
+        appendix = reference.Reference(flow.net, seed=seed + 9)
+        appendix.page = page
+        screen.blit(appendix.surface(), (0, 0))
+    else:
+        hand = margin.RegisterHand(flow.net)
+        doctor = Diagnostician(flow.net)
+        screen.blit(plate.surface, (0, 0))
+        vis.draw(screen, flow, cell, 1 / 60)
+        hand.draw_debt(screen, marks)
+        hand.draw(screen, marks)
+        roster.draw(screen, [cell], 0)
+        panel.draw(screen, flow, cell, False, ticks / tuning.TICK_HZ)
+        margin.budget(screen, marks)
+        worst = doctor.bottlenecks(flow, marks, 0, 1)
+        if worst:
+            margin.annotate(screen, worst[0],
+                            _anchor_for(plate, worst[0].row), seed=92)
     pygame.image.save(screen, path)
     pygame.quit()
     print(f"wrote {path}")
@@ -256,10 +349,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="render one frame to a PNG and exit")
     parser.add_argument("--silent", action="store_true",
                         help="no audio, even where a device is available")
+    parser.add_argument("--page", type=int, default=None,
+                        help="with --shot: render a page of the reference instead")
     args = parser.parse_args(argv)
 
     if args.shot:
-        return run_shot(args.profile, args.seed, args.ticks, args.shot)
+        return run_shot(args.profile, args.seed, args.ticks, args.shot,
+                        args.page)
     if args.headless:
         return run_headless(args.profile, args.seed, args.ticks, args.trace)
     return run_window(args.profile, args.seed, args.silent)

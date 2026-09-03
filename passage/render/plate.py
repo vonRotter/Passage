@@ -112,13 +112,16 @@ class Plate:
     def _draw_register(self, page: pygame.Surface) -> None:
         x, y, w, h = layout.REGISTER
         typo.caps(page, "gene register", (x, y + 6), 10, palette.INK, 2.0)
+        typo.draw(page, "left click activates · right click silences · "
+                       "again to lift, which costs more",
+                  (x + 132, y + 6), 10, palette.PENCIL, 0.2)
         markable = [g for g in self.net.genes if g.markable]
         rows = (len(markable) + layout.REGISTER_COLUMNS - 1) // layout.REGISTER_COLUMNS
         col_w = layout.register_column_width()
         for n, gene in enumerate(markable):
             column, row = divmod(n, rows)
             gx, gy = layout.register_cell(row, column)
-            typo.draw(page, gene.label, (gx + 16, gy), 11, palette.INK, 0.2)
+            typo.draw(page, gene.label, (gx + 18, gy), 11, palette.INK, 0.2)
             # the ruled box the player's mark goes into
             ink.ink_line(page, (gx, gy + 13), (gx + col_w - 20, gy + 13),
                          0.5, 4000 + n, palette.INK, 0.28)
