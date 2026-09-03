@@ -63,7 +63,7 @@ def test_the_hum_tracks_throughput():
     reading of "how much is happening", and it is what a player should hear.
     """
     def settled(profile):
-        flow, _ = build(profile, seed=0)
+        flow, _, _ = build(profile, seed=0)
         for _ in range(6_000):
             flow.step()
         return flow.throughput()
@@ -84,7 +84,7 @@ def test_the_hum_tracks_throughput():
 def test_upkeep_is_left_out_of_throughput():
     """Upkeep runs whether or not the factory works. Counting it would put a
     floor under the hum that hides the stall a player should hear coming."""
-    flow, _ = build("starved", seed=0)
+    flow, _, _ = build("starved", seed=0)
     for _ in range(6_000):
         flow.step()
     assert flow.rate_of("maintenance") >= 0.0

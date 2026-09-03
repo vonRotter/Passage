@@ -26,7 +26,7 @@ BOUND_TICKS = 6_000          # 300 simulated seconds
 
 
 def settled(profile="respiring", ticks=6_000):
-    flow, marks = build(profile, seed=0)
+    flow, marks, _ = build(profile, seed=0)
     for _ in range(ticks):
         flow.step()
     return flow
@@ -81,18 +81,33 @@ def test_blocking_the_respiratory_chain_reduces_every_nad_consumer():
         assert row in hit, f"{row} never slowed within {BOUND_TICKS} ticks"
 
 
-def test_backpressure_reaches_the_cell_boundary():
-    """The point of the whole mechanism: a stall deep in the plate eventually
-    shows up as the cell no longer taking food in."""
+def test_a_stall_backs_all_the_way_up_to_the_food_coming_in():
+    """The point of the whole mechanism.
+
+    In a rich medium a blocked cell does not simply stop eating. Uptake is
+    passive, so as long as the medium holds more sugar than the cell does,
+    sugar keeps arriving -- it just has nowhere to go. The pool above the block
+    fills, then the one above that, then the cell floods to its cap and begins
+    pouring the surplus away as waste. That is a truer statement of
+    backpressure than "uptake stops", and it is what actually happens.
+    """
     flow = settled()
+    net = flow.net
     before = flow.rate_of("exchange_glucose")
+    waste_before = flow.ledger.spilled.sum()
     assert before > 1e-3
+
     flow.set_expression("gapdh", 0.0)
     for _ in range(BOUND_TICKS):
         flow.step()
-    assert flow.rate_of("exchange_glucose") < 0.25 * before
-    assert flow.pool_of("g3p") > 0.9 * flow.net.cap[flow.net.mi("g3p")], \
+
+    assert flow.rate_of("exchange_glucose") < 0.5 * before, "uptake must fall"
+    assert flow.pool_of("g3p") > 0.95 * net.cap[net.mi("g3p")], \
         "the metabolite immediately above the block must be the one that fills"
+    assert flow.pool_of("glucose") > 0.95 * net.cap[net.mi("glucose")], \
+        "and the jam must reach back to the substrate coming in"
+    assert flow.ledger.spilled.sum() > waste_before + 1.0, \
+        "a flooded cell pours the surplus away, and is charged for it"
 
 
 def test_relieving_a_block_restores_flow():

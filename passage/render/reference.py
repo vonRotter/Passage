@@ -48,12 +48,13 @@ def equation(reaction: rxn_data.Reaction) -> str:
 class Reference:
     """Three pages, inked once each, turned with the arrow keys."""
 
-    TITLES = ("the substances", "the reactions", "the genes")
+    TITLES = ("the substances", "the reactions", "the genes", "the diet")
     SUBTITLES = (
         "what is in the cell, what makes it, and what uses it up",
         "every row balances on a real atom count; water and phosphate are "
         "present where the chemistry needs them but never limit anything",
         "what marking one would change, and what it idles at if you leave it",
+        "glede against damage — a game, not dietary advice",
     )
 
     def __init__(self, net: Network, seed: int = 9) -> None:
@@ -90,7 +91,8 @@ class Reference:
                   palette.PENCIL, 0.2)
         ink.ink_line(surface, (MARGIN, 78), (layout.WINDOW[0] - MARGIN, 78),
                      0.7, 5000 + page, palette.INK, 0.55)
-        [self._substances, self._reactions, self._genes][page](surface)
+        [self._substances, self._reactions, self._genes,
+         self._diet][page](surface)
         ink.ink_line(surface, (MARGIN, 684), (layout.WINDOW[0] - MARGIN, 684),
                      0.6, 5100 + page, palette.INK, 0.4)
         return surface
@@ -156,6 +158,62 @@ class Reference:
             for i, line in enumerate(_wrap(gene.note, 10, COLUMN - 130)):
                 typo.draw(surface, line, (x + 8, y + 15 + i * 13), 10,
                           palette.PENCIL, 0.2)
+
+
+    def _diet(self, surface: pygame.Surface) -> None:
+        from ..data import foods as food_data
+
+        typo.draw(surface,
+                  "Glede is pleasure, and it is a need rather than a vice: the "
+                  "first of the seven Norwegian dietary recommendations is to "
+                  "eat a varied diet, mostly from the plant kingdom, and to eat "
+                  "with pleasure. A lineage with no glede grows badly.",
+                  (MARGIN, TOP - 4), 11, palette.INK, 0.2)
+        typo.draw(surface,
+                  "Damage goes as the square of intake above the forgiven "
+                  "column, so one portion of something rich is nearly free and "
+                  "four are not. It never heals. Glede saturates, so past a "
+                  "point more indulgence buys no more happiness — only more "
+                  "damage.",
+                  (MARGIN, TOP + 16), 11, palette.PENCIL, 0.2)
+
+        head = TOP + 52
+        for label, x in (("food", 0), ("enters at", 340), ("glede", 560),
+                         ("harm", 640), ("forgiven", 716)):
+            typo.caps(surface, label, (MARGIN + x, head), 8,
+                      palette.INK_FAINT, 1.2)
+        ink.ink_line(surface, (MARGIN, head + 14),
+                     (layout.WINDOW[0] - MARGIN, head + 14), 0.5, 5200,
+                     palette.INK, 0.4)
+
+        y = head + 24
+        for food in food_data.FOODS:
+            typo.draw(surface, food.label, (MARGIN, y), 12, palette.INK, 0.2)
+            enters = ", ".join(met_data.BY_ID[m].label for m in food.supplies)
+            typo.draw(surface, enters, (MARGIN + 340, y), 10, palette.PENCIL, 0.2)
+            typo.draw(surface, f"{food.glede:.2f}", (MARGIN + 596, y), 10,
+                      palette.PENCIL, 0.0, align="right")
+            harm = palette.ALARM if food.harm > 0.5 else palette.PENCIL
+            typo.draw(surface, f"{food.harm:.2f}", (MARGIN + 676, y), 10,
+                      harm, 0.0, align="right")
+            typo.draw(surface,
+                      f"{food.forgiven:.2f}" if food.forgiven else "—",
+                      (MARGIN + 762, y), 10, palette.PENCIL, 0.0, align="right")
+            typo.draw(surface, food.guideline, (MARGIN + 8, y + 14), 10,
+                      palette.INK_FAINT, 0.2)
+            typo.draw(surface, food.note, (MARGIN + 8, y + 27), 10,
+                      palette.PENCIL, 0.2)
+            y += 46
+
+        note = ("Quantities and the seven recommendations: Helsedirektoratet "
+                "(2024, 15 August), Kostrådene; Nordic Council of Ministers "
+                "(2023), Nordic Nutrition Recommendations 2023. The numbers "
+                "here are chosen to make a metabolic toy behave the way those "
+                "guidelines describe at a population level. Nobody should take "
+                "a nutrition decision from a game.")
+        for i, line in enumerate(_wrap(note, 10, layout.WINDOW[0] - MARGIN * 2)):
+            typo.draw(surface, line, (MARGIN, 646 + i * 13), 10,
+                      palette.PENCIL, 0.2)
 
 
 def _wrap(text: str, size: int, width: float) -> list[str]:

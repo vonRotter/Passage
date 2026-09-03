@@ -83,6 +83,9 @@ class Flow:
         # marked for the first time (spec 3.3).
         self.relax_scale = np.ones((n_cells, n.n_genes))
 
+        # A per-cell, per-reaction multiplier on capacity. Nothing in the
+        # chemistry writes to it; it is where the diet's consequences land.
+        self.rate_scale = np.ones((n_cells, n.n_internal))
         self.rate = np.zeros((n_cells, n.n_internal))
         self.x_rate = np.zeros((n_cells, n.n_exchange))
         self.spill_rate = np.zeros((n_cells, n.n_metabolites))
@@ -139,7 +142,8 @@ class Flow:
                               0.0), axis=2)
         inh = np.clip(inh, 0.0, 1.0) * tuning.INHIBITION_CEILING
 
-        rate = n.base_rate[None, :] * self.enzyme[:, n.row_gene] * sat * (1.0 - inh)
+        rate = (n.base_rate[None, :] * self.rate_scale
+                * self.enzyme[:, n.row_gene] * sat * (1.0 - inh))
         rate = self._limit(rate, n.s_in, self.pools, dt)
 
         delta = rate @ n.s_net * dt                     # (C, M)

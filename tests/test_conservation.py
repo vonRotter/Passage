@@ -16,7 +16,7 @@ from passage.bio.flow import Flow
 
 @pytest.mark.parametrize("profile", sorted(PROFILES))
 def test_atoms_conserved_over_a_long_run(profile):
-    flow, marks = build(profile, seed=0)
+    flow, marks, _ = build(profile, seed=0)
     for _ in range(20_000):
         flow.step()
     residual = np.abs(flow.atom_residual())
@@ -26,7 +26,7 @@ def test_atoms_conserved_over_a_long_run(profile):
 
 
 def test_atoms_conserved_over_one_hundred_thousand_ticks():
-    flow, marks = build("growing", seed=0)
+    flow, marks, _ = build("growing", seed=0)
     for _ in range(100_000):
         flow.step()
     residual = np.abs(flow.atom_residual())
@@ -35,7 +35,7 @@ def test_atoms_conserved_over_one_hundred_thousand_ticks():
 
 
 def test_no_pool_ever_goes_negative():
-    flow, marks = build("fermenting", seed=0)
+    flow, marks, _ = build("fermenting", seed=0)
     for _ in range(20_000):
         flow.step()
         assert (flow.pools >= -1e-9).all()
@@ -43,7 +43,7 @@ def test_no_pool_ever_goes_negative():
 
 
 def test_no_pool_exceeds_its_cap():
-    flow, marks = build("fermenting", seed=0)
+    flow, marks, _ = build("fermenting", seed=0)
     net = flow.net
     for _ in range(20_000):
         flow.step()
@@ -54,7 +54,7 @@ def test_no_pool_exceeds_its_cap():
 def test_conserved_carrier_pairs_do_not_drift():
     """ATP+ADP and NADH+NAD are closed pools. If either total moves, some
     reaction is quietly minting or eating a carrier."""
-    flow, marks = build("growing", seed=0)
+    flow, marks, _ = build("growing", seed=0)
     adenylate = flow.pool_of("atp") + flow.pool_of("adp")
     nicotinamide = flow.pool_of("nad") + flow.pool_of("nadh")
     for _ in range(20_000):

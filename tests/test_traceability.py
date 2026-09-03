@@ -20,7 +20,7 @@ from passage.bio.marks import Kind
 
 
 def settle(profile="growing", ticks=4_000, silence=None):
-    flow, marks = build(profile, seed=0)
+    flow, marks, _ = build(profile, seed=0)
     if silence:
         marks.lift(silence) if marks.of(silence) else None
         marks.place(silence, Kind.SILENCING)
@@ -78,7 +78,7 @@ def test_every_reason_holds_against_the_solver(profile):
 
 def test_a_silenced_gene_is_named_with_the_generation_it_was_placed_in():
     """The clause the whole design turns on (spec 3.11)."""
-    flow, marks = build("baseline", seed=0)
+    flow, marks, _ = build("baseline", seed=0)
     marks.advance_generation()
     marks.advance_generation()
     assert marks.place("etc", Kind.SILENCING)
@@ -151,7 +151,7 @@ def test_the_remedy_never_asks_for_a_mark_the_player_cannot_place():
 
 def test_removing_a_mark_costs_more_than_placing_it_did():
     """Spec 3.3, and it must not be softened for convenience."""
-    flow, marks = build("baseline", seed=0)
+    flow, marks, _ = build("baseline", seed=0)
     assert marks.place("etc", Kind.SILENCING)
     assert marks.free == pytest.approx(tuning.MARK_BUDGET - 1)
     marks.advance_generation()
@@ -164,7 +164,7 @@ def test_removing_a_mark_costs_more_than_placing_it_did():
 
 
 def test_un_silencing_takes_longer_to_take_effect_than_silencing_did():
-    flow, marks = build("baseline", seed=0)
+    flow, marks, _ = build("baseline", seed=0)
     net = flow.net
     marks.place("etc", Kind.SILENCING)
     assert flow.relax_scale[0, net.gi("etc")] == pytest.approx(1.0)

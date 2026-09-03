@@ -31,7 +31,7 @@ WATCH = [
 
 
 def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
-         elapsed: float) -> None:
+         elapsed: float, vigour=None) -> None:
     x = layout.PANEL[0] + 18
     right = layout.WINDOW[0] - 20
 
@@ -67,6 +67,12 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
             ("waste spilled", f"{waste:.1f}"),
             ("yield", f"{cell.pool('biomass') / used:.3f}" if used > 1e-6 else "--"),
             ("elapsed", f"{elapsed:.0f}s")]
+    if vigour is not None:
+        eaten = sum(vigour.eaten.values())
+        rows = [("food eaten", f"{eaten:.0f}"),
+                ("glede", f"{vigour.glede:.0%}"),
+                ("vigour", f"{vigour.vigour:.0%}"),
+                ("score", f"{vigour.score(cell.pool('biomass')):.3f}")]
     for i, (label, value) in enumerate(rows):
         y = 354 + i * 20
         typo.draw(surface, label, (x, y), 11, palette.INK, 0.2)

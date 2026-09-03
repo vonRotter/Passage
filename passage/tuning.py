@@ -114,6 +114,29 @@ CLASS_TINT_WEIGHT = {
 }
 TINT_REFERENCE = 1.5       # total weight at which the tint is at full strength
 
+# --- glede and damage (the diet axis) -------------------------------------
+# Glede is a need, not a vice: the first Norwegian dietary recommendation says
+# to eat with pleasure, and a lineage that never has any grows badly. What the
+# player is choosing is not whether to have some but what to pay for it.
+GLEDE_HALF = 0.30           # intake-weighted pleasure at which glede reads a half
+GLEDE_TAU = 30.0            # seconds for glede to follow what is being eaten
+GLEDE_FLOOR = 0.55          # anabolic capacity of a lineage with no pleasure at all
+
+# Damage is superlinear in intake, which is the whole mechanism: one portion of
+# something rich is nearly free, four portions are not. Below a food's forgiven
+# intake it does no harm at all.
+DAMAGE_REFERENCE = 1.0      # the intake a harm coefficient is quoted against
+DAMAGE_HALF = 240.0          # accumulated damage at which vigour reads a half
+UPKEEP_PENALTY = 2.6        # how much more a worn-out lineage pays just to exist
+
+# The score weighs three things, and the third is what makes the diet axis mean
+# anything. On raw output, and even on yield, a lineage living on sweets ties
+# with one eating well -- it simply burns itself to get there. What separates
+# them is the state they are in at the end, so vigour is a multiplier on the
+# score and not a footnote to it. Glede counts too, at a smaller weight: a
+# lineage that never had any pleasure did worse, and the guidelines say so.
+SCORE_GLEDE_FLOOR = 0.6     # share of the score that does not depend on pleasure
+
 # --- conservation tolerances ---------------------------------------------
 BALANCE_TOLERANCE = 1e-9        # atom balance, per reaction, at load
 CONSERVATION_TOLERANCE = 1e-6   # relative atom drift over a long run

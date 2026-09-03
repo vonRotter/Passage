@@ -82,7 +82,7 @@ METABOLITES: list[Metabolite] = [
     _m("glutamate", "glutamate", {"C": 5, "H": 9, "N": 1, "O": 4}, Class.AMINO_ACIDS,
        cap=30.0, km=3.0),
     _m("biomass", "biomass", {"C": 9, "H": 13, "N": 1, "O": 6}, Class.AMINO_ACIDS,
-       cap=100.0, km=10.0,
+       cap=6000.0, km=10.0,
        note="one lumped unit of new cell material; what division is paid for in"),
 
     # --- energy carriers: two conserved pairs ---------------------------

@@ -29,6 +29,7 @@ from . import tuning
 from .bio.cell import Cell
 from .bio.flow import Flow
 from .bio.marks import Kind, Marks
+from .bio.vigour import Vigour
 from .data.metabolites import Class, POOLED
 
 #: Opening books: mark sets a player could actually place, within the budget of
@@ -51,14 +52,16 @@ PROFILES: dict[str, list[tuple[str, str]]] = {
 }
 
 
-def build(profile: str, seed: int) -> tuple[Flow, Marks]:
-    """A cell, and the marks on it. Everything downstream reads both."""
+def build(profile: str, seed: int,
+          diet: dict[str, float] | None = None) -> tuple[Flow, Marks, Vigour]:
+    """A cell, the marks on it, and what it is being fed."""
     flow = Flow(n_cells=1, seed=seed)
+    vigour = Vigour(flow, diet)
     marks = Marks(flow, 0)
     for gene, sign in PROFILES[profile]:
         marks.place(gene, Kind.ACTIVATING if sign == "+" else Kind.SILENCING)
     flow.settle()
-    return flow, marks
+    return flow, marks, vigour
 
 
 def print_pools(flow: Flow) -> None:
@@ -124,7 +127,7 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
     pygame.display.set_caption("Passage")
     clock = pygame.time.Clock()
 
-    flow, marks = build(profile, seed)
+    flow, marks, vigour = build(profile, seed)
     plate = Plate(seed=seed + 4)
     vis = FlowVis(plate)
     debug = overlay.Overlay()
@@ -179,6 +182,7 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
             while accumulator >= tuning.DT:
                 flow.step()
                 marks.update(tuning.DT)
+                vigour.update(tuning.DT)
                 accumulator -= tuning.DT
                 elapsed += tuning.DT
 
@@ -204,7 +208,7 @@ def run_window(profile: str, seed: int, silent: bool = False) -> int:
         hand.draw_debt(screen, marks)
         hand.draw(screen, marks)
         roster.draw(screen, [cell], 0)
-        panel.draw(screen, flow, cell, paused, elapsed)
+        panel.draw(screen, flow, cell, paused, elapsed, vigour)
         margin.budget(screen, marks)
 
         # What the plate has to say, out on a leader line into the margin.
@@ -278,10 +282,11 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
 
     pygame.init()
     pygame.display.set_mode((1, 1))
-    flow, marks = build(profile, seed)
+    flow, marks, vigour = build(profile, seed)
     for _ in range(ticks):
         flow.step()
         marks.update(tuning.DT)
+        vigour.update(tuning.DT)
     cell = Cell(flow, 0)
     plate = Plate(seed=seed + 4)
     vis = FlowVis(plate)
@@ -298,7 +303,7 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
         hand.draw_debt(screen, marks)
         hand.draw(screen, marks)
         roster.draw(screen, [cell], 0)
-        panel.draw(screen, flow, cell, False, ticks / tuning.TICK_HZ)
+        panel.draw(screen, flow, cell, False, ticks / tuning.TICK_HZ, vigour)
         margin.budget(screen, marks)
         worst = doctor.bottlenecks(flow, marks, 0, 1)
         if worst:
@@ -311,7 +316,7 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
 
 
 def run_headless(profile: str, seed: int, ticks: int, trace: bool) -> int:
-    flow, marks = build(profile, seed)
+    flow, marks, vigour = build(profile, seed)
     cell = Cell(flow, 0)
     watch = ["glucose", "g3p", "pyruvate", "acetyl", "oxaloacetate",
              "atp", "nadh", "lactate", "biomass"]
@@ -325,6 +330,7 @@ def run_headless(profile: str, seed: int, ticks: int, trace: bool) -> int:
                   + "".join(f"{cell.pool(m):8.2f}" for m in watch))
         flow.step()
         marks.update(tuning.DT)
+        vigour.update(tuning.DT)
 
     print(f"\nprofile: {profile}   seed: {seed}   "
           f"marks {marks.spent:.0f}/{marks.budget:.0f}")
@@ -332,6 +338,8 @@ def run_headless(profile: str, seed: int, ticks: int, trace: bool) -> int:
     print_rates(flow)
     print_ledger(flow)
     print(f"\n  {cell!r}  dominant={cell.dominant_class().value}")
+    print(f"  glede {vigour.glede:.2f}   vigour {vigour.vigour:.2f}   "
+          f"score {vigour.score(cell.pool('biomass')):.3f}   {vigour.summary()}")
     return 0
 
 

@@ -8,7 +8,113 @@ Everything you switch off stays off, in every cell that comes after.
 
 ---
 
-## State: M1 — the plate
+## State: M2 — the marks gate, plus the diet axis
+
+The player marks genes on a printed register, and the plate says in plain words
+what is wrong, in what quantity, and whose fault it is. On top of that, a second
+axis the build spec did not have: **glede against damage**.
+
+```
+startgame.bat                              # Windows: double-click
+python -m passage                          # the plate, 1280x720
+python -m passage --shot page.png          # one frame to a PNG, no display needed
+python -m passage --shot ref.png --page 3  # a page of the appendix
+python -m passage --headless --profile growing --ticks 50000
+python -m pytest                           # 92 tests
+```
+
+`space` pauses · `tab` opens the appendix · left click activates a gene, right
+click silences it, the same button again lifts it · `g` advances a generation.
+
+### Being technical and still readable
+
+The game's answer to "tell me what to do, in real terms, and let me look it up"
+is two things.
+
+**It diagnoses, in plain words, with numbers, and names who is to blame.** Every
+reason carries four parts: what is wrong, the quantities named, what to do about
+it, and — when the trail leads to a mark — the generation that mark was placed
+in. For example, live from a run:
+
+> **G3P → pyruvate is short of ADP**
+> ADP and ATP are one closed pool: 0.58 against 49.4, so 99% of it is sitting as
+> ATP. ADP is not made — it is what is left when ATP gets spent, and nothing
+> here is spending it.
+> *glucose → 2 G3P is what clears it, and PFK-1 is at 15%. Activating PFK-1
+> would clear it, but all eight marks are placed. Something has to come off
+> first, and lifting costs more than placing did — the oldest is glucose
+> transporter, from generation 1.*
+
+Two rules make that work. A player cannot pour anything into a cell, so a
+shortage is **never** reported as a shortage — it is reported as the gene that
+would fix it. And advice a player cannot act on is worse than none, so the note
+changes mood when the budget is full.
+
+**And there is somewhere to read it.** `tab` opens a four-page appendix, bound
+into the same plate: every substance with its formula, capacity, and what makes
+and uses it; every reaction with its full balanced stoichiometry, its gene, and
+its capacity; every gene with what it encodes and what marking it would change;
+and the diet. It is generated from the tables in `data/`, so it cannot drift
+away from the game it describes.
+
+`tests/test_traceability.py` takes each claim apart and holds it against the
+arrays the solver used — the named metabolite really is the scarcest of that
+reaction's inputs, the named product really is the fullest, the generation
+matches the mark, and the amount named as wanted comes from the same saturation
+curve the solver integrates.
+
+### Glede against damage
+
+A second scoring axis, crossing yield. Not in the original spec; added because
+it is a better idea than anything the spec had for making the *choice of food*
+matter beyond its entry point.
+
+The design is anchored on something worth noticing: the first of the seven
+Norwegian dietary recommendations is *"Ha et variert kosthold, velg mest mat fra
+planteriket og **spis med glede**"* — eat with pleasure (Helsedirektoratet,
+2024). Pleasure is inside the advice, not opposed to it. So **glede is a need**:
+a lineage with none of it grows badly. The question is never whether to have
+some, but what you are willing to pay.
+
+Three parts, pulling against each other:
+
+- **Glede** saturates. Past a point, more indulgence buys no more happiness.
+- **Damage** goes as the *square* of intake above a forgiven threshold. One
+  portion of something rich is nearly free; four cost sixteen times as much. It
+  never heals.
+- **Vigour** is what is left. A worn-out lineage pays more upkeep simply to
+  exist, and builds worse — good for your mental health, and not for your RNA.
+
+Three diets, all supplying the **same total food**, over forty-five simulated
+minutes:
+
+| Diet | Biomass | Yield | Glede | Vigour | **Score** |
+|---|---|---|---|---|---|
+| standard — mostly plants, some fish, a little of what you like | 999 | 0.305 | 52% | 100% | **0.246** |
+| ascetic — plants and grain only | 860 | 0.265 | 35% | 100% | 0.197 |
+| indulgent — sweets, processed meat, butter | 1030 | 0.304 | 75% | 24% | 0.065 |
+
+Read the first three columns and indulgence looks fine: it produced the *most*
+biomass, at the same yield, and had by far the best time doing it. It is only
+when the score asks what the lineage has **left** that the bill arrives. That is
+why vigour multiplies the score rather than sitting beside it — and it is the
+honest shape, because on output alone the two diets genuinely tie. The sweets
+lineage just burned itself down to get there.
+
+Indulgence also wins *early* — ahead on biomass for the first half of a run —
+and that is deliberate. If it were not tempting there would be no choice to
+make.
+
+The normalisation matters: without matching the total food, a result showing the
+rich diet losing would only show that it was also the larger one. `foods.supply`
+exists so the test can assert it.
+
+**This is a game, not dietary advice.** The numbers are chosen to make a
+metabolic toy behave the way the guidelines describe at a population level.
+
+---
+
+## M1 — the plate
 
 The build spec's M1 with the art direction's A0 and A1 folded in: the ink
 primitives, the hand-placed plate, one cell, animated flow, and pool washes.
@@ -21,7 +127,7 @@ python -m passage --profile fermenting     # start from a given expression set
 python -m passage --shot page.png          # one frame to a PNG, no display needed
 python -m passage.debug.testpage a0.png    # the A0 materials page
 python -m passage --headless --ticks 50000 --trace
-python -m pytest                           # 59 tests
+python -m pytest                           # 92 tests
 ```
 
 `--shot` exists because the art direction cannot be checked without looking at
@@ -105,18 +211,22 @@ Marks matter, and the trade the design is built on is already visible in the
 numbers. Biomass produced per unit of glucose supplied, 500 simulated seconds,
 one cell:
 
-| Profile | Biomass | Glucose used | Yield |
-|---|---|---|---|
-| `fermenting` | 6.0 | 590.4 | 0.010 |
-| `etc_silenced` | 0.8 | 29.6 | 0.025 |
-| `baseline` | 14.5 | 97.5 | 0.148 |
-| `aerobic` | 17.0 | 101.1 | 0.168 |
-| `tuned` | 35.3 | 106.2 | **0.333** |
+**These numbers were superseded at M2.** The profiles they were measured on
+marked twelve genes against a budget of eight, so they were configurations no
+player could reach, and the chemistry they were measured against had a flaw that
+M2 found: with upkeep as cheap as it was, the cell had no reason to make ATP and
+eight marks bought a one per cent improvement. The current figures are in the M2
+section. Kept here because the M0 acceptance was judged against them.
 
-A thirty-three-fold spread in yield between the best and worst configuration,
-on a fixed network, with no content unlocked and nothing hidden. Fermentation
-burns five and a half times the glucose for a sixth of the growth, which is the
-trade a player is meant to discover rather than be told. Silencing the respiratory chain kills
+| Profile | Yield |
+|---|---|
+| `fermenting` | 0.010 |
+| `etc_silenced` | 0.025 |
+| `baseline` | 0.148 |
+| `aerobic` | 0.168 |
+| `tuned` | **0.333** |
+
+Silencing the respiratory chain kills
 the cell outright: NAD+ is fully reduced within a minute and every step that
 needs it stops.
 
@@ -136,7 +246,7 @@ Stoichiometry follows standard treatments of central metabolism (Berg et al.,
 NADH, the consensus measured value rather than the older integer figure
 (Hinkle, 2005).
 
-Three bookkeeping simplifications, all documented in `data/metabolites.py`
+Four bookkeeping simplifications, all documented in `data/metabolites.py`
 rather than buried in the solver:
 
 - **Acetyl-CoA** is carried as its acetyl moiety, hydrated to acetate. CoA is
@@ -148,6 +258,12 @@ rather than buried in the solver:
   every reaction that needs them so that balance holds exactly, never limiting,
   and never drawn on the plate. Their net flux is metered so that atom
   conservation is still checked end to end.
+- **The conserved carriers do not product-inhibit.** ATP and ADP are one closed
+  pool, and a reaction that makes ATP is already throttled by ADP running short
+  on its own substrate side. Charging it again for the ATP piling up counts the
+  energy charge twice, and the doubled grip held the whole plate in a low-flux
+  equilibrium that no mark could lift. This one is a correction, not a
+  convenience.
 
 Everything else uses real formulae, and every reaction balances on a genuine
 atom count. That is enforced at load and by test, and the network refuses to
@@ -206,33 +322,43 @@ literature question. Five decisions were taken; each is reversible.
    cell was importing and exporting lactate simultaneously at comparable rates.
    A gradient-driven net flux is both correct and cheaper.
 
-### Open at M1, wanting a decision
+### Settled since M1
 
-- **The font is a placeholder.** `data/chart.ttf` is Liberation Serif, which is
-  OFL-licensed and therefore safe to ship, and which is a transitional serif
-  that reads as machine-set. The art direction asks for "a plain old-style
-  serif or a clean grotesque — something that could plausibly be letterpress",
-  and a genuine old-style face would be better. Swapping it is a one-file
-  change.
-- **Exchange stubs stop short of the membrane.** They were originally drawn all
-  the way out through the cell envelope, which is more truthful, but the
-  envelope is far from most pools and the stubs became the loudest lines on the
-  page for the least information. They are now short ticked stubs. If crossing
-  the membrane matters to you, the alternative is a smaller envelope that hugs
-  the pool cluster more tightly.
-- **The cell tint reads "energy" for every living cell.** The conserved carrier
-  pairs sit at a constant total, so class fill was a constant and tinted
-  everything arterial red; energy now contributes its *charge* instead, which
-  varies properly. But charge is high whenever the cell is alive at all, so it
-  still wins. Calibrating this is A2's job — "a player can tell a healthy cell
-  from a choked one across the room" — and it wants doing there rather than
-  guessed at now.
-- **No audio yet.** The build spec's M1 does not ask for it; the art direction
-  does. The pen scratch and the division tick have nothing to attach to until
-  M2 and M3, but the continuous hum tracking throughput is the art direction's
-  "most useful instrument in the game" and would be useful the moment there is
-  a bottleneck to hear. Recommend building the hum at M2 with the marks, and
-  the rest at their milestones.
+- **The font** is now Vollkorn (OFL) — an old-style face with warmth and some
+  quirk, and it holds at the nine and ten pixel sizes most of this interface
+  lives at, which EB Garamond did not.
+- **Exchange stubs stay short**, as decided.
+- **The cell tint** is now a *blend* of the class washes rather than a winner,
+  weighted so that waste shouts and gases whisper, with energy contributing its
+  charge. A working cell reads red-ochre, a choked one olive, a dead one pale
+  and drained. Whether that is enough for A2's "across the room" test is still
+  a question for eyes rather than for me.
+- **Audio** is built: a continuous hum whose pitch follows throughput, a pen
+  scratch on placing a mark, a wet tick, and a sour tone for spillover. Loops
+  are cycle-aligned and their noise is synthesised in the frequency domain, so
+  they repeat without a click. No audio device means no audio and no error.
+
+### Open, wanting a decision
+
+- **Dosing is not a verb, and I did not make it one.** "Add three parts of X"
+  implies pouring something into a cell, which would be a fifth verb, and the
+  spec forbids that in as many words. What is built instead is the diagnosis:
+  the game tells you what is short, by how much, and which gene would fix it.
+  If you want dosing to be a real action — supplementing the medium mid-run —
+  say so and I will put the case for and against properly, but I am not going
+  to add it quietly.
+- **The diet is fixed for now.** Choosing what to eat is §3.8's adoption
+  mechanic and lands at M5. The three diets exist as data and as a test; the
+  player cannot yet switch between them in a run.
+- **Every food enters through one of four existing gates.** The distinct entry
+  points the design turns on — fibre fermented to short-chain fatty acids
+  arriving at acetyl-CoA, fructose slipping past the regulation point, ethanol
+  with its toxic intermediate — are what M5 is for. What is here already
+  carries the glede-against-damage axis, which was the part that needed
+  proving.
+- **Cells cannot die yet.** A worn-out lineage pays triple upkeep and builds at
+  40%, but nothing kills it. Spec open question 2 recommends death, slow and
+  heavily telegraphed, and defers the decision to M4.
 
 ### Open from M0, still standing
 
