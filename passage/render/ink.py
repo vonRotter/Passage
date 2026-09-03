@@ -261,10 +261,36 @@ def ink_line(surface: pygame.Surface, a: Point, b: Point, weight: float = 1.0,
 
 def ink_curve(surface: pygame.Surface, points: list[Point], weight: float = 1.0,
               seed: int = 0, colour: RGB = palette.INK, alpha: float = 1.0,
-              closed: bool = False) -> None:
-    """The same treatment on a spline. Vessels and cell outlines are curves."""
+              closed: bool = False, broken: bool = False) -> None:
+    """The same treatment on a spline. Vessels and cell outlines are curves.
+
+    ``broken`` draws it as a dashed run. The plate uses that for a step this
+    body runs below standard: a gap in the line is unmistakable at any length,
+    it needs no clear space beside the vessel to be legible, and it cannot be
+    confused with the flow marks, which are strokes *across* a vessel.
+    """
     path = spline(list(points) + ([points[0]] if closed else []))
-    _stroke(surface, path, colour, weight, seed, alpha, closed=closed)
+    if not broken:
+        _stroke(surface, path, colour, weight, seed, alpha, closed=closed)
+        return
+    # measured in pixels, not in spline samples: sample density varies with the
+    # vessel's length, and an index-based pattern silently stops breaking on a
+    # short one -- which is exactly where it is most needed
+    on, off = 11.0, 5.0
+    path = spline(path, step=1.5)      # dense enough for the gaps to land
+    run: list[Point] = []
+    travelled = 0.0
+    for i, point in enumerate(path):
+        if i:
+            travelled += math.dist(path[i - 1], point)
+        if travelled % (on + off) < on:
+            run.append(point)
+        else:
+            if len(run) > 1:
+                _stroke(surface, run, colour, weight, seed + i, alpha)
+            run = []
+    if len(run) > 1:
+        _stroke(surface, run, colour, weight, seed + len(path), alpha)
 
 
 # ---------------------------------------------------------------------------
@@ -457,19 +483,114 @@ def hand_mark(surface: pygame.Surface, kind: str, position: Point, seed: int = 0
 
 
 # ---------------------------------------------------------------------------
+# the idioms of a biochemical chart
+# ---------------------------------------------------------------------------
+
+def arrowhead(surface: pygame.Surface, at: Point, heading: Point,
+              size: float = 6.0, seed: int = 0, colour: RGB = palette.INK,
+              alpha: float = 1.0, weight: float = 1.0) -> None:
+    """A small open V, drawn by hand. Direction is information, not decoration.
+
+    A pathway chart without arrowheads is a graph; with them it is a chart. The
+    difference matters because half of what the player needs to read off this
+    page is which way things are going.
+    """
+    dx, dy = heading
+    length = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / length, dy / length
+    px, py = -uy, ux
+    back = (at[0] - ux * size, at[1] - uy * size)
+    for side in (1, -1):
+        tip = (back[0] + px * size * 0.52 * side, back[1] + py * size * 0.52 * side)
+        _stroke(surface, [tip, at], colour, weight, seed + side * 7, alpha,
+                jitter=0.25)
+
+
+def cofactor_arc(surface: pygame.Surface, at: Point, heading: Point,
+                 radius: float = 20.0, seed: int = 0,
+                 colour: RGB = palette.INK, alpha: float = 0.75,
+                 flip: bool = False) -> tuple[Point, Point]:
+    """The curved arrow that carries a cofactor across a reaction.
+
+    This is *the* idiom of a biochemical pathway chart. The main arrow runs
+    substrate to product; a shallow curve dips down onto it and back up, with
+    what is consumed written at one tip and what is produced at the other::
+
+           NAD+        NADH
+              \        /
+               \______/
+        G3P ——————•——————→ pyruvate
+
+    It ties a cofactor into a step without giving it a node of its own. A chart
+    that leaves this out reads as a box-and-line diagram rather than as
+    biochemistry, which is exactly what was wrong with the first version of this
+    plate: the carriers sat in a column off to one side, connected to nothing.
+
+    Returns where to write the two labels: what goes in, and what comes out.
+    """
+    dx, dy = heading
+    length = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / length, dy / length
+    px, py = (-uy, ux) if not flip else (uy, -ux)
+
+    def offset(along: float, out: float) -> Point:
+        return (at[0] + ux * radius * along + px * radius * out,
+                at[1] + uy * radius * along + py * radius * out)
+
+    start, end = offset(-0.85, 1.15), offset(0.85, 1.15)
+    _stroke(surface, spline([start, offset(-0.62, 0.62), at,
+                             offset(0.62, 0.62), end], step=2.0),
+            colour, 0.65, seed, alpha, jitter=0.24)
+    arrowhead(surface, end, (ux * 0.35 + px, uy * 0.35 + py), 4.6, seed + 3,
+              colour, alpha, 0.6)
+    # set clear of the vessel: the label belongs to the arc, and a
+    # cofactor name resting on a metabolite reads as that metabolite
+    return offset(-1.22, 1.9), offset(1.22, 1.9)
+
+
+def membrane(surface: pygame.Surface, shape: list[Point], seed: int = 0,
+             colour: RGB = palette.INK, alpha: float = 0.75,
+             gap: float = 3.2) -> None:
+    """A double line: the boundary of a compartment.
+
+    Every chart of central metabolism draws the mitochondrion, because half the
+    pathway happens inside it and the other half does not, and a substance
+    crossing that line is doing something a substance moving within a
+    compartment is not.
+    """
+    pts = spline(list(shape) + [shape[0]], step=6.0)
+    for i, offset in enumerate((gap * 0.5, -gap * 0.5)):
+        pushed = []
+        for j, (x, y) in enumerate(pts):
+            ax, ay = pts[j - 1]
+            bx, by = pts[(j + 1) % len(pts)]
+            dx, dy = bx - ax, by - ay
+            length = math.hypot(dx, dy) or 1.0
+            pushed.append((x - dy / length * offset, y + dx / length * offset))
+        _stroke(surface, pushed, colour, 0.8, seed + i * 11, alpha, jitter=0.4)
+
+
+# ---------------------------------------------------------------------------
 # shapes the plate is built from
 # ---------------------------------------------------------------------------
 
 def blob(centre: Point, radius: float, seed: int = 0, squash: float = 1.0,
-         wobble: float = 0.12, steps: int = 30) -> list[Point]:
+         wobble: float = 0.12, steps: int = 30, fullness: float = 2.0) -> list[Point]:
     """A soft rounded form. At this scale nothing has anatomy.
 
     Everything on the plate is one of these: cells are big ones, pools are small
     organelle-like ones. The style carries the sophistication; the shapes stay
     simple, and attempting detail is how this look gets ruined.
+
+    ``fullness`` is the superellipse exponent. At 2 this is an ellipse, which is
+    the right shape for an organelle. A cell pressed against its neighbours is
+    not an ellipse -- it is a rounded slab -- and drawing it as one is both
+    truer and, practically, the difference between an interior that holds a
+    pathway and one that squeezes everything towards the middle.
     """
     rng = _rng(seed)
     phase = rng.uniform(0, math.tau, 3)
+    n = 2.0 / max(fullness, 1e-3)
     out = []
     for i in range(steps):
         t = math.tau * i / steps
@@ -477,5 +598,39 @@ def blob(centre: Point, radius: float, seed: int = 0, squash: float = 1.0,
                       + wobble * math.sin(t * 2 + phase[0]) * 0.6
                       + wobble * math.sin(t * 3 + phase[1]) * 0.3
                       + wobble * math.sin(t * 5 + phase[2]) * 0.15)
-        out.append((centre[0] + math.cos(t) * r, centre[1] + math.sin(t) * r * squash))
+        c, s_ = math.cos(t), math.sin(t)
+        if fullness != 2.0:
+            c = math.copysign(abs(c) ** n, c)
+            s_ = math.copysign(abs(s_) ** n, s_)
+        out.append((centre[0] + c * r, centre[1] + s_ * r * squash))
     return out
+
+
+def stricture(surface: pygame.Surface, at: Point, heading: Point,
+              seed: int = 0, colour: RGB = palette.INK, alpha: float = 0.7,
+              size: float = 7.0) -> None:
+    """A pinch across a vessel: this step is narrower than the chart prints it.
+
+    The constitution cannot be marked away, so it is printed onto the plate
+    rather than reported in a footnote. A player who has seen this mark once
+    knows on sight which of their own steps is the constricted one, which is
+    the difference between reading a diagnosis and having a page to work from.
+
+    Drawn as two arcs bowing inwards from either side, not as strokes across
+    the line: the flow animation already draws ticks across vessels, and two
+    marks that mean different things must not share a shape.
+    """
+    hx, hy = heading
+    n = math.hypot(hx, hy) or 1.0
+    ux, uy = hx / n, hy / n
+    px, py = -uy, ux
+    reach = size * 1.1
+    for side in (-1, 1):
+        arc = []
+        for t in (-1.0, -0.5, 0.0, 0.5, 1.0):
+            # deepest at the centre, so the pair reads as a waist
+            out = size * (0.55 + 0.75 * abs(t))
+            arc.append((at[0] + ux * t * reach + px * out * side,
+                        at[1] + uy * t * reach + py * out * side))
+        _stroke(surface, spline(arc, step=1.6), colour, 1.2,
+                seed + side + 1, alpha, jitter=0.28)

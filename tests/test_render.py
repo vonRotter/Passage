@@ -58,12 +58,18 @@ def lineage(settled):
 # --- the layout ------------------------------------------------------------
 
 def test_every_pooled_metabolite_is_placed():
+    """Everything the player can affect is readable somewhere.
+
+    Pooled metabolites are on the chart; the four conserved carriers are read
+    in the margin instead, because a chart with an ATP box is a node graph."""
     net = network()
     for met in net.metabolites:
         if not met.buffered:
-            assert met.id in layout.POOLS, f"{met.id} has nowhere to be drawn"
-    for mid in layout.POOLS:
+            assert met.id in layout.POOLS or met.id in layout.CARRIERS, \
+                f"{met.id} has nowhere to be read"
+    for mid in list(layout.POOLS) + list(layout.CARRIERS):
         assert mid in net.m_index, f"{mid} is drawn but is not a metabolite"
+    assert not set(layout.POOLS) & set(layout.CARRIERS)
 
 
 def test_every_reaction_has_a_vessel():
@@ -78,10 +84,67 @@ def test_every_reaction_has_a_vessel():
 def test_every_pool_sits_inside_the_cell_envelope():
     """Pools are organelles inside a cell. One drawn outside the membrane reads
     as a mistake, and exchange stubs are the only thing that crosses it."""
-    (cx, cy), radius, squash = layout.CELL_ENVELOPE
-    for mid, (x, y, _) in layout.POOLS.items():
-        d = ((x - cx) / radius) ** 2 + ((y - cy) / (radius * squash)) ** 2
-        assert d < 0.94, f"{mid} sits on or outside the membrane ({d:.2f})"
+    for mid, (x, y, r) in layout.POOLS.items():
+        edge = max(layout.envelope_depth(x + r * np.cos(t), y + r * np.sin(t))
+                   for t in np.linspace(0.0, 2 * np.pi, 64))
+        assert edge < 1.0, f"{mid} crosses the membrane ({edge:.2f})"
+
+
+def test_the_chart_carries_the_conventions_that_make_it_biochemistry():
+    """Cofactors on curved arrows, a compartment, and a ring.
+
+    The first version of this page put ATP in a box beside the cell and drew
+    every line at one weight, and it read as a node graph in period costume.
+    Each of these is a convention a real chart uses to carry information, and
+    losing one silently is the failure this test exists to catch.
+    """
+    # no carrier has a node; they ride the arrows that spend them
+    for mid in layout.CARRIERS:
+        assert mid not in layout.POOLS
+    assert layout.COFACTORS, "no reaction carries a cofactor arc"
+    for row_id in layout.COFACTORS:
+        assert row_id in layout.VESSELS
+
+    # the trunk outweighs the side reactions, or the page has no hierarchy
+    assert layout.WEIGHTS["glycolysis_upper"] > layout.WEIGHTS["gluconeogenesis"]
+    assert layout.WEIGHTS["pdh"] > layout.WEIGHTS["anaplerosis"]
+
+    # the cycle's members are inside the compartment and the cytosol's are not
+    (mx, my), radius, squash = layout.MITOCHONDRION
+
+    def inside(mid):
+        x, y, _ = layout.POOLS[mid]
+        return ((x - mx) / radius) ** 2 + ((y - my) / (radius * squash)) ** 2 < 1.0
+
+    for mid in ("acetyl", "akg", "oxaloacetate"):
+        assert inside(mid), f"{mid} belongs in the mitochondrion"
+    for mid in ("glucose", "g3p", "pyruvate", "lactate", "biomass"):
+        assert not inside(mid), f"{mid} belongs in the cytosol"
+
+
+def test_the_constitution_is_printed_on_the_plate():
+    """The chart is the same chart every run; the inking is not.
+
+    A weakened step is drawn thinner and broken. Without this the constitution
+    exists only as a line of text in the margin, and the page a player with
+    poor sugar handling learns is identical to everyone else's.
+    """
+    from passage.data import constitutions as con_data
+    from passage.render.plate import Plate
+
+    net = network()
+    even = Plate(net, seed=3)
+    assert even.constricted("glycolysis_upper") == 1.0
+
+    poor = con_data.BY_ID["sugar_averse"]
+    marked = Plate(net, seed=3, constitution=poor)
+    assert marked.constricted("glycolysis_upper") < 0.92
+    assert marked.constricted("pdh") == 1.0, "only the weak step is marked"
+
+    # and the two pages are not the same page
+    a = pygame.surfarray.array3d(even.surface).astype(np.int32)
+    b = pygame.surfarray.array3d(marked.surface).astype(np.int32)
+    assert np.abs(a - b).sum() > 0, "the constitution left no trace on the plate"
 
 
 def test_pools_do_not_overlap():

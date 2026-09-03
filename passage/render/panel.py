@@ -50,15 +50,12 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
                            f"{cell.pool('biomass'):.0f} in this one",
                   (x, 118), 9, palette.PENCIL, 0.2)
 
-    typo.caps(surface, "energy charge", (x, 132), 9, palette.INK_FAINT, 1.6)
-    charge = cell.energy_charge()
-    typo.draw(surface, f"{charge:.0%}", (right, 128), 13,
-              palette.INK if charge > 0.2 else palette.ALARM, 0.0, align="right")
+    _carriers(surface, cell, x, right)
 
-    typo.caps(surface, "rates", (x, 164), 9, palette.INK_FAINT, 1.6)
-    ink.ink_line(surface, (x, 178), (right, 178), 0.5, 71, palette.INK, 0.4)
+    typo.caps(surface, "rates", (x, 200), 9, palette.INK_FAINT, 1.6)
+    ink.ink_line(surface, (x, 214), (right, 214), 0.5, 71, palette.INK, 0.4)
     for i, (row_id, label) in enumerate(WATCH):
-        y = 188 + i * 20
+        y = 224 + i * 18
         typo.draw(surface, label, (x, y), 11, palette.INK, 0.2)
         try:
             rate = flow.rate_of(row_id, cell.index)
@@ -68,8 +65,8 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
                   palette.INK if abs(rate) > 1e-3 else palette.INK_FAINT,
                   0.0, align="right")
 
-    typo.caps(surface, "ledger", (x, 330), 9, palette.INK_FAINT, 1.6)
-    ink.ink_line(surface, (x, 344), (right, 344), 0.5, 72, palette.INK, 0.4)
+    typo.caps(surface, "ledger", (x, 348), 9, palette.INK_FAINT, 1.6)
+    ink.ink_line(surface, (x, 360), (right, 360), 0.5, 72, palette.INK, 0.4)
     net = flow.net
     used = float(flow.ledger.supplied[net.mi("glucose")])
     waste = float(flow.ledger.spilled.sum())
@@ -83,11 +80,47 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
                 ("vigour", f"{vigour.vigour:.0%}"),
                 ("score", f"{vigour.score(built):.3f}")]
     for i, (label, value) in enumerate(rows):
-        y = 354 + i * 20
+        y = 370 + i * 18
         typo.draw(surface, label, (x, y), 11, palette.INK, 0.2)
         typo.draw(surface, value, (right, y), 11, palette.INK, 0.0, align="right")
 
     if paused:
-        typo.caps(surface, "paused", (right - 54, 448), 11, palette.INK, 2.4)
+        typo.caps(surface, "paused", (right - 54, 566), 11, palette.INK, 2.4)
     typo.draw(surface, "space pause · tab ref · d divide · shift 1-5 specialise · 1-9 cell",
               (x, 704), 9, palette.PENCIL, 0.2)
+
+
+def _carriers(surface: pygame.Surface, cell: Cell, x: float,
+              right: float) -> None:
+    """The two conserved pairs, read as instruments.
+
+    They are deliberately not on the chart. ATP has no node in a biochemical
+    drawing -- it rides a curved arrow across the reaction that spends it, and
+    that is how the plate draws it. But a stock still has to be readable, and a
+    reading belongs in the margin with the other numbers, ruled, and plainly
+    not part of the cell.
+
+    Each pair is read against its partner rather than against a maximum. How
+    much ATP there is means nothing on its own: the pair is closed, the two
+    always sum to the same number, and what the cell can actually do depends
+    only on which side of the pair the pool is sitting.
+    """
+    typo.caps(surface, "carriers", (x, 128), 9, palette.INK_FAINT, 1.6)
+    rows = (("energy charge", "atp", "adp"),
+            ("reducing power", "nadh", "nad"))
+    for i, (label, loaded, spent) in enumerate(rows):
+        y = 144 + i * 24
+        total = cell.pool(loaded) + cell.pool(spent)
+        share = cell.pool(loaded) / total if total > 1e-9 else 0.0
+        low = share < 0.2 if loaded == "atp" else False
+        typo.draw(surface, label, (x, y), 11, palette.INK, 0.2)
+        typo.draw(surface, f"{share:.0%}", (right, y), 11,
+                  palette.ALARM if low else palette.INK, 0.0, align="right")
+        # the ruled bar: how much of the closed pair sits on the loaded side
+        bar_x, bar_w = x + 106, right - x - 146
+        ink.ink_line(surface, (bar_x, y + 14), (bar_x + bar_w, y + 14), 0.5,
+                     74 + i, palette.INK, 0.2)
+        if share > 0.01:
+            ink.ink_line(surface, (bar_x, y + 14),
+                         (bar_x + bar_w * share, y + 14), 2.2, 76 + i,
+                         palette.ALARM if low else palette.INK, 0.55)

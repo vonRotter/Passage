@@ -134,7 +134,7 @@ def run_window(profile: str, seed: int, silent: bool = False,
     clock = pygame.time.Clock()
 
     flow, marks, vigour = build(profile, seed, constitution=constitution)
-    plate = Plate(seed=seed + 4)
+    plate = Plate(seed=seed + 4, constitution=flow.constitution)
     vis = FlowVis(plate)
     debug = overlay.Overlay()
     doctor = Diagnostician(flow.net)
@@ -199,7 +199,8 @@ def run_window(profile: str, seed: int, silent: bool = False,
                     elif want < len(lineage.members):
                         selected = want
                 elif event.key == pygame.K_F3:
-                    plate = Plate(seed=int(np.random.default_rng().integers(1 << 20)))
+                    plate = Plate(seed=int(np.random.default_rng().integers(1 << 20)),
+                                  constitution=flow.constitution)
                     vis = FlowVis(plate)
                 else:
                     debug.key(event.key)
@@ -338,7 +339,7 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
     look = min(max(0, watch), flow.n_cells - 1)
     cell = Cell(flow, look)
     marks = lineage.marks_of(look)
-    plate = Plate(seed=seed + 4)
+    plate = Plate(seed=seed + 4, constitution=flow.constitution)
     vis = FlowVis(plate)
     screen = pygame.Surface(tuning_window())
     if page is not None:

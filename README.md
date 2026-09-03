@@ -20,7 +20,7 @@ python -m passage                          # the plate, 1280x720
 python -m passage --shot page.png --grow   # one frame to a PNG, no display needed
 python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 128 tests
+python -m pytest                           # 130 tests
 ```
 
 `space` pauses · `tab` opens the appendix (six pages) · `d` divides the selected
@@ -263,7 +263,7 @@ python -m passage --profile fermenting     # start from a given expression set
 python -m passage --shot page.png --grow   # one frame to a PNG, no display needed
 python -m passage.debug.testpage a0.png    # the A0 materials page
 python -m passage --headless --ticks 50000 --trace
-python -m pytest                           # 128 tests
+python -m pytest                           # 130 tests
 ```
 
 `--shot` exists because the art direction cannot be checked without looking at
@@ -283,6 +283,71 @@ tightened.
 Jitter is seeded from a thing's identity, never from time — and never from
 `hash()`, which Python randomises per process and which would have re-inked the
 plate differently on every launch.
+
+### The chart, and why it is drawn the way it is
+
+The first version of this page was a node graph in period costume: circles for
+substances, arrows between them, one line weight throughout, and a column of
+boxes off to the side holding ATP, ADP, NAD+ and NADH. It rendered correctly
+and it read as a flow diagram, which is to say it read as a diagram of
+anything. Real biochemical charts do five things it was not doing, and each of
+them is information rather than decoration.
+
+**Cofactors ride the arrow.** There is no ATP node in a biochemical drawing.
+ATP appears on a curved arrow crossing the reaction that spends it, coming in
+on one side and leaving as ADP on the other. That single convention is most of
+what makes a page read as chemistry — it says *this step costs energy* at the
+step, rather than requiring the reader to trace a line to a box. Giving ATP a
+box of its own was the single largest thing making the page generic. The
+carriers are now read as ruled instruments in the right margin, where a stock
+reading belongs, and the plate draws them where they act.
+
+**Compartments are real.** Half of central metabolism happens inside the
+mitochondrion and half does not, and a substance crossing that line is doing
+something a substance moving within a compartment is not. The mitochondrion is
+drawn with a double line, because it is a double membrane, and pyruvate's
+arrow visibly crosses it.
+
+**A cycle is drawn as a cycle.** The citric acid cycle drawn as two straight
+arrows is not recognisable as one. It is a ring inside the compartment, with a
+stroke leaving oxaloacetate, passing the acetyl group it condenses with, and
+sweeping over the top.
+
+**Machinery is not a step.** The respiratory chain is not a station on a
+pathway; it is machinery sunk through the membrane. It is a short heavy bar
+crossing the membrane, with oxygen joining it from outside on a light limb —
+first drawn as an arc *along* the membrane, where it was simply lost against
+the membrane's own line.
+
+**Weight carries hierarchy.** The trunk is heavy, the branches lighter, the
+side reactions lighter still, and every arrow has a head, because direction is
+information. Drawing every line at one weight is most of the rest of what makes
+a diagram look machine-made.
+
+Two things were tried and taken back out. Enzyme names on the vessels are the
+right convention on a poster and unreadable at 1280x720 — they collided with
+the metabolite names, the cofactor labels and each other, so they live in the
+gene register along the bottom, which is where the player marks them anyway.
+And cofactor arcs on all fifteen reactions turned the page into soup; seven
+carry one, and they are the seven that define the shape of the thing.
+
+### The same chart, a different body
+
+The chart's shape is fixed, and has to be: the player is meant to learn this
+page permanently, and a layout that shifts between runs destroys that. So the
+variation is not in where anything sits — it is in the inking.
+
+A step this lineage runs below standard, whether from a weak enzyme or from
+poor affinity for its substrate, is printed thinner and **broken**. A run with
+poor sugar handling has a dashed hairline where glycolysis should be heavy; a
+run with reduced respiratory capacity has it at the chain. The constitution
+cannot be marked away, so it is on the page from the first second rather than
+in a footnote, and the appendix prints the two line weights side by side so the
+mark is named rather than guessed at.
+
+The mark is a gap in the line, not a stroke across it, because the flow
+animation already draws strokes across vessels and two marks that mean
+different things must not share a shape.
 
 ### Performance
 

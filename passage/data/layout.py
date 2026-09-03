@@ -24,115 +24,193 @@ PANEL = (976, 0, 304, 720)         # right margin: target, rates, annotation
 #: Where the printed gene register sits, ruled along the bottom of the plate.
 REGISTER = (212, 574, 748, 132)
 
-#: Every pooled metabolite, as (x, y, radius). Organelle-like forms inside the
-#: cell, each filled with its class wash to a level proportional to fill.
+#: Every pooled metabolite that is drawn *on the chart*, as (x, y, radius).
+#:
+#: The composition is a reading order, not a graph. Glycolysis runs straight
+#: down the left, in the cytosol, the way every textbook prints it. The
+#: mitochondrion is a compartment of its own on the right, with the cycle drawn
+#: as a ring inside it. Everything that trades with the medium sits against the
+#: membrane, where its transporter is. The eye goes down, then right, then
+#: round -- and that path is the same path the carbon takes.
+#:
+#: The four conserved carriers are deliberately absent. On a real biochemical
+#: chart there is no ATP node: ATP rides a curved arrow across the reaction that
+#: spends it. A chart that gives it a box of its own reads as a generic node
+#: graph, which is exactly the failing this layout was rebuilt to fix. Their
+#: stocks are read in the right margin, with the other instruments.
 POOLS: dict[str, tuple[float, float, float]] = {
-    # the glycolytic trunk, running down the left of the plate
-    "glucose":      (312, 182, 27),
-    "g3p":          (312, 262, 23),
-    "pyruvate":     (312, 342, 25),
-    "lactate":      (238, 412, 22),
+    # the glycolytic trunk, down the left, in the cytosol
+    "glucose":      (330, 152, 24),
+    "g3p":          (330, 248, 20),
+    "pyruvate":     (330, 348, 22),
+    "lactate":      (330, 440, 20),
 
-    # the crossroads, and the cycle below it
-    "acetyl":       (404, 404, 25),
-    "oxaloacetate": (404, 494, 22),
-    "akg":          (536, 516, 22),
+    # what the lineage is for, and what it stores
+    "biomass":      (404, 468, 26),
+    "palmitate":    (524, 466, 21),
 
-    # gases, across the empty top of the plate
-    "co2":          (470, 150, 20),
-    "o2":           (556, 172, 21),
+    # inside the mitochondrion: the crossroads, and the ring
+    "acetyl":       (600, 282, 23),
+    "akg":          (786, 292, 20),
+    "oxaloacetate": (692, 398, 21),
 
-    # what the lineage may adopt later, drawn faintly until it does.
-    # Palmitate sits close to acetyl-CoA because that is where it enters; the
-    # short vessel and the long bypassed trunk are the same statement.
-    "palmitate":    (632, 326, 23),
-    "glutamate":    (700, 478, 23),
-    "ammonia":      (768, 506, 18),
+    # against the membrane on the right, where respiration trades gas
+    "o2":           (872, 228, 19),
+    "co2":          (872, 378, 18),
 
-    # the target
-    "biomass":      (296, 458, 30),
-
-    # the two conserved carrier pairs, ruled down the right of the plate
-    "atp":          (884, 262, 24),
-    "adp":          (884, 330, 22),
-    "nadh":         (804, 398, 22),
-    "nad":          (884, 398, 22),
+    # the nitrogen corner: what the lineage may adopt, and its waste
+    "glutamate":    (756, 462, 21),
+    "ammonia":      (842, 434, 16),
 }
 
+#: The conserved pairs. Not chart nodes -- readings, taken in the right margin.
+CARRIERS: tuple[str, ...] = ("atp", "adp", "nad", "nadh")
+
+#: The inner compartment. Half of central metabolism happens inside the
+#: mitochondrion and half does not, and a substance crossing that line is doing
+#: something a substance moving within a compartment is not. Every real chart
+#: draws it; leaving it out was what made this page look like a flat graph.
+#: Drawn with a double line, because it is a double membrane.
+MITOCHONDRION: tuple[Point, float, float] = ((692, 318), 152.0, 0.78)
+
+#: The cell envelope. A rounded slab rather than an ellipse: a cell in a tissue
+#: is pressed against its neighbours, and the flat sides are also what give the
+#: interior room to hold a pathway instead of crowding it to the centre.
+CELL_ENVELOPE: tuple[Point, float, float, float] = ((592, 300), 326.0, 0.638, 3.8)
+
 #: Every reaction, as the vessel that carries it. Hand-drawn waypoints, run
-#: through a spline. Vessels are curves, never straight lines.
+#: through a spline, with an arrowhead at the far end. Direction is information.
 VESSELS: dict[str, list[Point]] = {
-    "glycolysis_upper":  [(312, 211), (304, 226), (312, 239)],
-    "glycolysis_lower":  [(312, 287), (320, 306), (312, 317)],
-    "gluconeogenesis":   [(290, 284), (262, 262), (262, 220), (288, 193)],
+    "glycolysis_upper":  [(330, 174), (320, 199), (330, 226)],
+    "glycolysis_lower":  [(330, 270), (341, 299), (330, 326)],
+    "gluconeogenesis":   [(310, 326), (274, 292), (274, 204), (310, 170)],
 
-    "fermentation":      [(292, 360), (268, 386), (256, 396)],
-    "pdh":               [(330, 358), (368, 382), (384, 392)],
+    "fermentation":      [(332, 372), (344, 400), (332, 418)],
 
-    # the citric acid cycle, drawn as a ring so that it reads as one
-    "tca_upper":         [(408, 430), (422, 478), (478, 522), (513, 518)],
-    "tca_lower":         [(532, 538), (492, 558), (438, 546), (406, 517)],
+    # across the mitochondrial membrane, which is a real step and looks like one
+    "pdh":               [(353, 344), (430, 338), (500, 314), (577, 290)],
 
-    # in and out of the cycle: the pair the player has to keep in balance,
-    # bowed apart so that neither hides the other
-    "anaplerosis":       [(322, 366), (356, 420), (390, 470)],
-    "cataplerosis":      [(384, 506), (322, 462), (294, 372)],
+    # The ring. One stroke leaves oxaloacetate, passes the acetyl group it
+    # condenses with, and sweeps over the top to oxoglutarate; a second brings
+    # the carbon back down the right. Drawn closed, because it is a cycle, and
+    # a cycle drawn as two straight arrows is not recognisable as one.
+    "tca_upper":         [(678, 378), (636, 336), (616, 302), (628, 268),
+                          (676, 244), (734, 252), (770, 274)],
+    "tca_lower":         [(792, 314), (792, 350), (762, 384), (714, 398)],
 
-    # lipids bypass glycolysis entirely and enter at acetyl-CoA. The vessel
-    # sweeping past the whole glycolytic trunk without touching it is the
-    # point, not an accident of placement (spec 3.8).
-    "beta_oxidation":    [(612, 340), (548, 374), (470, 394), (430, 398)],
-    "lipogenesis":       [(428, 384), (486, 358), (556, 334), (612, 314)],
+    # The respiratory chain is not a step in a pathway, it is machinery sunk
+    # through the membrane, so it is drawn as a short heavy bar crossing it
+    # rather than as an arc running along it -- where, drawn as an arc, it was
+    # simply lost against the membrane's own double line.
+    "oxphos":            [(816, 318), (868, 318)],
 
-    "gdh":               [(678, 486), (614, 506), (558, 514)],
-    "biosynthesis":      [(382, 414), (344, 436), (320, 448)],
+    # in and out of the ring: the bowed pair the player has to keep in balance
+    "anaplerosis":       [(348, 366), (444, 424), (562, 444), (666, 416)],
+    "cataplerosis":      [(670, 420), (556, 464), (430, 452), (344, 374)],
 
-    "oxphos":            [(826, 398), (846, 414), (862, 398)],
-    "maintenance":       [(886, 286), (906, 308), (886, 306)],
+    "biosynthesis":      [(582, 298), (516, 358), (452, 424), (424, 452)],
+
+    # lipids leave and re-enter at the same carbon, by two different routes
+    "lipogenesis":       [(600, 306), (592, 376), (560, 432), (542, 448)],
+    "beta_oxidation":    [(546, 448), (574, 390), (596, 326), (602, 302)],
+
+    "gdh":               [(760, 440), (778, 398), (790, 346), (788, 314)],
+
+    # the cost of being alive: spent in the cytosol, going nowhere, and drawn
+    # as a closed curl because that is exactly what it is
+    "maintenance":       [(408, 222), (438, 240), (408, 258)],
+}
+
+#: What each reaction carries across itself on a curved arrow: what goes in,
+#: what comes out, and which side of the vessel to draw it. This is the idiom
+#: that makes the page read as biochemistry rather than as a flow diagram.
+#:
+#: Only the trunk carries one. Every reaction in the network uses a cofactor,
+#: and drawing all fifteen turned the page into soup: at this size the labels
+#: collide with the metabolite names and with each other. A real chart gets away
+#: with it by being a poster. So the steps that define the shape of central
+#: metabolism carry their arc, and the rest do not.
+COFACTORS: dict[str, tuple[str, str, bool]] = {
+    "glycolysis_upper":  ("ATP", "ADP", True),
+    "glycolysis_lower":  ("NAD+", "NADH", True),
+    "fermentation":      ("NADH", "NAD+", False),
+    "pdh":               ("NAD+", "NADH", True),
+    "tca_lower":         ("NAD+", "NADH", False),
+    "oxphos":            ("ADP", "ATP", False),
+    "maintenance":       ("ATP", "ADP", True),
+}
+
+#: The gases. A gas is not a station on a pathway, it is something a reaction
+#: takes from the medium or lets go of, and a chart draws it as a light limb
+#: joining the arrow rather than as another node in the chain. Each entry is a
+#: path with a small arrowhead at its far end.
+TRIBUTARIES: dict[str, list[Point]] = {
+    "o2_to_chain":   [(870, 248), (874, 278), (868, 304)],
+    "co2_off_ring":  [(768, 392), (812, 386), (850, 380)],
+}
+
+#: How heavily each vessel is inked. Real charts have a hierarchy: the trunk is
+#: heavy, the branches lighter, the side reactions lighter still. Drawing every
+#: line at one weight is most of what makes a diagram look machine-made.
+WEIGHTS: dict[str, float] = {
+    "glycolysis_upper": 2.3, "glycolysis_lower": 2.3, "pdh": 2.1,
+    "tca_upper": 2.1, "tca_lower": 2.1, "oxphos": 2.8,
+    "fermentation": 1.7, "biosynthesis": 1.7, "beta_oxidation": 1.5,
+    "anaplerosis": 1.3, "cataplerosis": 1.1, "gluconeogenesis": 1.1,
+    "lipogenesis": 1.1, "gdh": 1.4, "maintenance": 1.2,
 }
 
 #: Traffic with the medium: a short stub leaving each pool outward, ticked at
-#: the far end. Deliberately short rather than run all the way out through the
-#: envelope -- the membrane is a long way from most pools, and a stub that
-#: reached it would be the loudest line on the page for the least information.
-#: Passive and bidirectional: the direction a player reads is the flow mark
-#: travelling along it, not a printed arrowhead.
+#: the far end. Passive and bidirectional -- the direction a player reads is the
+#: flow mark travelling along it, not a printed arrowhead. Each one starts on
+#: the pool and ends outside the envelope, so it visibly crosses the membrane.
 EXCHANGE_STUBS: dict[str, tuple[Point, Point]] = {
-    "exchange_glucose":   ((312, 153), (306, 92)),
-    "exchange_co2":       ((466, 128), (456, 74)),
-    "exchange_o2":        ((558, 149), (566, 92)),
-    "exchange_lactate":   ((216, 408), (166, 396)),
-    "exchange_palmitate": ((650, 310), (706, 256)),
-    "exchange_glutamate": ((722, 484), (796, 460)),
-    "exchange_ammonia":   ((782, 518), (846, 542)),
+    "exchange_glucose":   ((330, 128), (308, 68)),
+    "exchange_lactate":   ((314, 454), (262, 488)),
+    "exchange_o2":        ((891, 228), (940, 210)),
+    "exchange_co2":       ((890, 378), (940, 392)),
+    "exchange_ammonia":   ((858, 434), (908, 458)),
+    "exchange_glutamate": ((752, 483), (726, 530)),
+    "exchange_palmitate": ((516, 486), (494, 532)),
 }
 
 #: Where a leader line leaves a feature, when the margin has something to say
 #: about it. Annotation lives in the margin, never in a tooltip over the plate.
 LEADER_ANCHORS: dict[str, Point] = {
-    "glucose": (334, 168), "g3p": (332, 250), "pyruvate": (334, 328),
-    "acetyl": (424, 392), "oxaloacetate": (386, 512), "akg": (554, 530),
-    "lactate": (246, 430), "biomass": (312, 480), "palmitate": (726, 254),
-    "glutamate": (712, 460), "atp": (904, 248), "nadh": (790, 414),
+    "glucose": (356, 140), "g3p": (352, 248), "pyruvate": (354, 348),
+    "lactate": (352, 456), "biomass": (430, 484),
+    "acetyl": (622, 268), "oxaloacetate": (692, 421), "akg": (806, 292),
+    "palmitate": (546, 466), "glutamate": (778, 462),
 }
 
-#: The cell envelope: everything on the plate is inside one cell, and this is
-#: its outline. A soft rounded form -- at this scale nothing has anatomy.
-CELL_ENVELOPE: tuple[Point, float, float] = ((566, 330), 372.0, 0.608)
+def envelope_depth(x: float, y: float) -> float:
+    """How far out towards the membrane a point is. 1.0 is on it.
+
+    The envelope is a superellipse, so the plain ellipse test is wrong for it:
+    a point at the flat side of the slab reads as far outside under the ellipse
+    formula while being comfortably inside the drawn membrane.
+    """
+    (cx, cy), a, squash, fullness = CELL_ENVELOPE
+    b = a * squash
+    return (abs((x - cx) / a) ** fullness + abs((y - cy) / b) ** fullness)
+
 
 #: Where a pool's printed label sits, when directly underneath would put it
 #: on top of a vessel. Hand-placed, like everything else here.
 POOL_LABEL_OFFSET: dict[str, Point] = {
-    "g3p": (-46, -4),
-    "oxaloacetate": (-6, 8),
-    "pyruvate": (-52, -4),
-    "biomass": (-4, 6),
-    "akg": (10, 8),
-    "nad": (0, 4),
-    "atp": (-50, -30),
-    "adp": (-50, -30),
-    "nadh": (-2, 4),
-    "palmitate": (-4, 6),
+    "glucose": (-58, -18),
+    "g3p": (40, -14),
+    "pyruvate": (48, -16),
+    "lactate": (-2, 2),
+    "biomass": (-8, 2),
+    "acetyl": (-38, -56),
+    "akg": (-14, -66),
+    "oxaloacetate": (-36, 16),
+    "palmitate": (-6, 4),
+    "glutamate": (42, -10),
+    "ammonia": (16, -4),
+    "co2": (0, -2),
+    "o2": (0, -46),
 }
 
 #: The printed gene register, one row per gene, machine-set. The player's marks

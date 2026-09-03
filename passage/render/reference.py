@@ -257,11 +257,24 @@ class Reference:
                 y += 20
             y += 8
 
+        # The plate itself carries this, so the mark it carries it with has to
+        # be named somewhere. Drawn rather than described, beside its meaning.
+        ink.ink_line(surface, (MARGIN, 634), (MARGIN + 54, 634), 2.2, 811,
+                     palette.INK, 0.85)
+        ink.ink_curve(surface, [(MARGIN, 648), (MARGIN + 27, 648),
+                                (MARGIN + 54, 648)], 1.5, 812, palette.INK,
+                      0.8, broken=True)
+        typo.draw(surface,
+                  "A step this body runs below standard is printed on the "
+                  "plate thinner and broken, like the lower of these two. The "
+                  "chart is the same chart every run; the inking is not.",
+                  (MARGIN + 70, 634), 10, palette.PENCIL, 0.2)
+
         typo.draw(surface,
                   "Nothing here is hidden: every constitution in the game is "
                   "on this page, and the one this lineage holds is ticked. "
                   "Knowing which you have is the easy half.",
-                  (MARGIN, 660), 10, palette.PENCIL, 0.2)
+                  (MARGIN, 664), 10, palette.PENCIL, 0.2)
 
 
     def _specialisms(self, surface: pygame.Surface) -> None:

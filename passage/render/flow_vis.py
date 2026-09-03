@@ -103,9 +103,9 @@ class FlowVis:
         key = (colour, bucket)
         hit = self._tint_cache.get(key)
         if hit is None and bucket > 0:
-            centre, radius, squash = layout.CELL_ENVELOPE
+            centre, radius, squash, fullness = layout.CELL_ENVELOPE
             shape = ink.blob(centre, radius * 0.99, seed=21, squash=squash,
-                             wobble=0.09, steps=52)
+                             wobble=0.06, steps=64, fullness=fullness)
             # a whisper, not a fill. At this size the wash covers most of the
             # plate, and anything stronger drowns the paper and the linework.
             made = ink.make_wash(shape, colour, seed=61,
