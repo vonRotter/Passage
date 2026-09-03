@@ -53,6 +53,11 @@ class Constitution:
     handles: dict[str, float] = field(default_factory=dict)
     #: Multipliers on what a food actually delivers into the medium.
     absorbs: dict[str, float] = field(default_factory=dict)
+    #: What a food turns into for this body instead of what it is for everyone
+    #: else, as ``{food: {from metabolite: to metabolite}}``. Sugar this lineage
+    #: cannot digest does not simply fail to arrive -- it is fermented on the
+    #: way in and arrives as acid.
+    redirects: dict[str, dict[str, str]] = field(default_factory=dict)
     #: What the player should end up doing about it. Written down because
     #: nothing in this game is hidden -- but they still have to act on it.
     counsel: str = ""
@@ -118,16 +123,19 @@ CONSTITUTIONS: list[Constitution] = [
 
     Constitution(
         "milk_intolerant", "no milk tolerance",
-        "milk passes through unused, and lactate clears slowly",
-        absorbs={"dairy": 0.2},
-        handles={"dairy": 3.2},
-        holds={"lactate": 0.45},
-        capacity={"exchange_lactate": 0.4},
-        counsel="This lineage gets almost nothing out of dairy and pays for it "
-                "anyway, and it clears lactate slowly on top — so anything that "
-                "pushes it toward fermentation costs twice. Take the fat and "
-                "the nitrogen from somewhere else, and keep the sugar load low "
-                "enough that glycolysis never has to overflow.",
+        "milk sugar ferments on the way in and arrives as acid",
+        # The sugar is not simply lost. It is fermented on the way in and
+        # arrives as acid, which this lineage then has to clear with a smaller
+        # pool to hold it in. That is a mechanism rather than a penalty, and it
+        # is why a dairy-led diet costs this body specifically.
+        absorbs={"dairy": 0.75},
+        redirects={"dairy": {"glucose": "lactate"}},
+        holds={"lactate": 0.3},
+        counsel="Milk arrives as acid rather than as sugar in this lineage, "
+                "and it has less room to hold it than most. Something has to "
+                "burn the lactate — a cell marked to oxidise it — or the dairy "
+                "has to come out of the diet. Taking the fat and the nitrogen "
+                "from somewhere else is the simpler answer.",
     ),
 
     Constitution(

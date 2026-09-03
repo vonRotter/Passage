@@ -52,6 +52,40 @@ DIVISION_SHARE = 0.5            # how the parent's pools are split
 # challenged.
 DRIFT_CHANCE = 0.035            # per mark, per division
 
+# Differentiation clears the inherited configuration wholesale and writes a new
+# one. That is worth paying for as a single large charge rather than as the
+# per-mark price of lifting each old mark by hand -- but it is still a charge,
+# and it still comes out of the same eight.
+DIFFERENTIATION_COST = 2.5
+
+# --- junctions (spec 3.6) -------------------------------------------------
+# Cells exchange metabolites down the concentration gradient, never against it.
+# There is no routing and no logistics network: you create the gradients by
+# choosing who produces what, and the junctions do the rest.
+#
+# Throughput is limited and *shared* -- a cell with many junctions moves less
+# through each of them. That is what makes the shape of the lineage matter:
+# a hub that feeds four daughters feeds each of them a quarter as well, and a
+# specialist several hops from its supplier starves, because every hop is
+# another gradient that has to be paid for.
+JUNCTION_RATE = 9.0             # units a second through an unshared junction
+JUNCTION_SHARE = 1.0            # exponent on 1/degree; 1 is a straight split
+
+# --- death (spec open question 2, decided at M4) --------------------------
+# Yes, cells can die -- but slowly and with a great deal of warning, because a
+# run collapsing for a reason the player could not have fixed in time is a worse
+# outcome than one that merely scores badly. The honest failure state is
+# finishing with a poor score, not dying.
+#
+# The threshold is an *absolute* floor rather than a share of the adenylate
+# pool, and deliberately low. A lean lineage of specialists runs at a very low
+# charge quite happily, because upkeep saturates down as ATP falls; that is
+# generous, and it is what stops a working configuration being killed for being
+# frugal. Death is for a cell that has genuinely stopped, not one running thin.
+DEATH_ATP = 0.15                # units of ATP, out of an adenylate pool of 50
+DEATH_PATIENCE = 120.0          # seconds below it before a cell gives up
+DEATH_RECOVERY = 3.0            # how much faster it recovers than it declines
+
 # --- pools ----------------------------------------------------------------
 SPILL_FRACTION = 1.0            # share of over-cap material that spills per tick
 DEFAULT_POOL_CAP = 100.0

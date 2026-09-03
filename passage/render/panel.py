@@ -89,5 +89,5 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
 
     if paused:
         typo.caps(surface, "paused", (right - 54, 448), 11, palette.INK, 2.4)
-    typo.draw(surface, "space pause · tab reference · d divide · g generation · 1-9 cell",
+    typo.draw(surface, "space pause · tab ref · d divide · shift 1-5 specialise · 1-9 cell",
               (x, 704), 9, palette.PENCIL, 0.2)

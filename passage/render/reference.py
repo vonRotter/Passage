@@ -49,7 +49,7 @@ class Reference:
     """Three pages, inked once each, turned with the arrow keys."""
 
     TITLES = ("the substances", "the reactions", "the genes", "the diet",
-              "the constitution")
+              "the constitution", "specialisms")
     SUBTITLES = (
         "what is in the cell, what makes it, and what uses it up",
         "every row balances on a real atom count; water and phosphate are "
@@ -57,6 +57,7 @@ class Reference:
         "what marking one would change, and what it idles at if you leave it",
         "relish against damage, and what it leaves behind",
         "the genome this lineage was dealt, which no mark will change",
+        "what a cell can be pushed into being, and what it gives up for it",
     )
 
     def __init__(self, net: Network, seed: int = 9, constitution=None) -> None:
@@ -94,8 +95,8 @@ class Reference:
                   palette.PENCIL, 0.2)
         ink.ink_line(surface, (MARGIN, 78), (layout.WINDOW[0] - MARGIN, 78),
                      0.7, 5000 + page, palette.INK, 0.55)
-        [self._substances, self._reactions, self._genes,
-         self._diet, self._constitution][page](surface)
+        [self._substances, self._reactions, self._genes, self._diet,
+         self._constitution, self._specialisms][page](surface)
         ink.ink_line(surface, (MARGIN, 684), (layout.WINDOW[0] - MARGIN, 684),
                      0.6, 5100 + page, palette.INK, 0.4)
         return surface
@@ -261,6 +262,49 @@ class Reference:
                   "on this page, and the one this lineage holds is ticked. "
                   "Knowing which you have is the easy half.",
                   (MARGIN, 660), 10, palette.PENCIL, 0.2)
+
+
+    def _specialisms(self, surface: pygame.Surface) -> None:
+        from ..data import specialisms as spec_data
+        from .. import tuning
+
+        intro = (f"A specialism is nothing but marks in bulk. What the shove "
+                 f"buys is clearing the inherited pattern in one go instead of "
+                 f"lifting each old mark by hand; what it costs is "
+                 f"{tuning.DIFFERENTIATION_COST:g} of the same eight, on top of "
+                 f"the five the new pattern holds. Every one of these has "
+                 f"switched something important off, and is only viable if a "
+                 f"neighbour covers the gap — which means a junction, and "
+                 f"junctions are shared and lossy. Shift and a number.")
+        for i, line in enumerate(_wrap(intro, 11,
+                                       layout.WINDOW[0] - MARGIN * 2)):
+            typo.draw(surface, line, (MARGIN, TOP - 8 + i * 15), 11,
+                      palette.INK, 0.2)
+
+        y = TOP + 56
+        for n, spec in enumerate(spec_data.SPECIALISMS):
+            typo.draw(surface, f"shift {n + 1}", (MARGIN, y), 10,
+                      palette.INK_FAINT, 0.2)
+            typo.draw(surface, spec.label, (MARGIN + 74, y), 12, palette.INK, 0.2)
+            typo.draw(surface, spec.summary, (MARGIN + 280, y), 11,
+                      palette.PENCIL, 0.2)
+            marks = " · ".join(
+                [f"{g}+" for g in spec.activate] + [f"{g}−" for g in spec.silence])
+            typo.draw(surface, marks, (MARGIN + 84, y + 16), 10,
+                      palette.INK_FAINT, 0.2)
+            typo.draw(surface, f"needs {spec.needs}", (MARGIN + 84, y + 30), 10,
+                      palette.PENCIL, 0.2)
+            typo.draw(surface, f"gives {spec.gives}", (MARGIN + 84, y + 44), 10,
+                      palette.PENCIL, 0.2)
+            y += 68
+
+        typo.draw(surface,
+                  "Junctions form between a parent and its daughter and nowhere "
+                  "else, so the shape of the lineage is the transport network. "
+                  "Nothing is routed: material moves down its own gradient, and "
+                  "every hop needs a fresh one, so most of what a distant cell "
+                  "needs never arrives.",
+                  (MARGIN, 664), 10, palette.PENCIL, 0.2)
 
 
 def _effects(con) -> str:

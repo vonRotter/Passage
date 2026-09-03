@@ -130,6 +130,8 @@ class Network:
         self.mask_in = (self.s_in > 0) & ~self.buffered[None, :]
         self.inhibits = np.array([m.inhibits for m in self.metabolites])
         self.congests = np.array([m.congests for m in self.metabolites])
+        self.travels = np.array([m.travels and not m.buffered
+                                 for m in self.metabolites])
         self.mask_out = (self.s_out > 0) & ~self.buffered[None, :] \
             & self.inhibits[None, :]
 

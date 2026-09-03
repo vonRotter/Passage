@@ -54,6 +54,11 @@ class Metabolite:
     #: is trying to make is the point of the exercise. Everything else backing
     #: up is a substance with nowhere to go.
     congests: bool = True
+    #: Whether a junction passes it between cells. Small metabolites travel;
+    #: the conserved carriers deliberately do not. A cell that could be handed
+    #: ATP by a neighbour would never need to make any, and specialisation
+    #: would cost nothing -- every specialist has to keep its own books.
+    travels: bool = True
     note: str = ""
 
     @property
@@ -78,7 +83,9 @@ METABOLITES: list[Metabolite] = [
     # --- lipids ---------------------------------------------------------
     _m("acetyl", "acetyl-CoA", {"C": 2, "H": 4, "O": 2}, Class.LIPIDS, cap=40.0, km=2.0,
        note="acetyl moiety only; CoA implicit"),
-    _m("palmitate", "palmitate", {"C": 16, "H": 32, "O": 2}, Class.LIPIDS, cap=30.0, km=2.0),
+    _m("palmitate", "palmitate", {"C": 16, "H": 32, "O": 2}, Class.LIPIDS,
+       cap=30.0, km=2.0, travels=False,
+       note="too large to pass a junction; a lipid specialist has to take its own in"),
 
     # --- amino acids ----------------------------------------------------
     _m("akg", "2-oxoglutarate", {"C": 5, "H": 6, "O": 5}, Class.AMINO_ACIDS, cap=60.0, km=1.0,
@@ -87,7 +94,7 @@ METABOLITES: list[Metabolite] = [
     _m("glutamate", "glutamate", {"C": 5, "H": 9, "N": 1, "O": 4}, Class.AMINO_ACIDS,
        cap=30.0, km=3.0),
     _m("biomass", "biomass", {"C": 9, "H": 13, "N": 1, "O": 6}, Class.AMINO_ACIDS,
-       cap=6000.0, km=10.0, congests=False,
+       cap=6000.0, km=10.0, congests=False, travels=False,
        note="one lumped unit of new cell material; what division is paid for in"),
 
     # --- energy carriers: two conserved pairs ---------------------------
@@ -98,13 +105,13 @@ METABOLITES: list[Metabolite] = [
     # energy charge twice, and the doubled grip clamps the whole plate into a
     # low-flux equilibrium that no mark can lift. The same holds for NAD+/NADH.
     _m("atp", "ATP", {"C": 10, "H": 16, "N": 5, "O": 13, "P": 3}, Class.ENERGY,
-       cap=50.0, km=2.0, inhibits=False, congests=False),
+       cap=50.0, km=2.0, inhibits=False, congests=False, travels=False),
     _m("adp", "ADP", {"C": 10, "H": 15, "N": 5, "O": 10, "P": 2}, Class.ENERGY,
-       cap=50.0, km=2.0, inhibits=False, congests=False),
+       cap=50.0, km=2.0, inhibits=False, congests=False, travels=False),
     _m("nad", "NAD+", {"C": 21, "H": 26, "N": 7, "O": 14, "P": 2}, Class.ENERGY,
-       cap=20.0, km=1.0, inhibits=False, congests=False),
+       cap=20.0, km=1.0, inhibits=False, congests=False, travels=False),
     _m("nadh", "NADH", {"C": 21, "H": 28, "N": 7, "O": 14, "P": 2}, Class.ENERGY,
-       cap=20.0, km=1.0, inhibits=False, congests=False),
+       cap=20.0, km=1.0, inhibits=False, congests=False, travels=False),
 
     # --- gases ----------------------------------------------------------
     _m("o2", "oxygen", {"O": 2}, Class.GASES, cap=30.0, km=1.0,

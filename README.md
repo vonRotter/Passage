@@ -8,7 +8,7 @@ Everything you switch off stays off, in every cell that comes after.
 
 ---
 
-## State: M3 — division and inheritance
+## State: M4 — specialists and transport
 
 The player marks genes on a printed register, and the plate says in plain words
 what is wrong, in what quantity, and whose fault it is. On top of that, a second
@@ -20,11 +20,12 @@ python -m passage                          # the plate, 1280x720
 python -m passage --shot page.png --grow   # one frame to a PNG, no display needed
 python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 113 tests
+python -m pytest                           # 128 tests
 ```
 
-`space` pauses · `tab` opens the appendix (five pages) · `d` divides the
-selected cell · `1`–`9` or a click on the tree selects one · left click activates a gene, right
+`space` pauses · `tab` opens the appendix (six pages) · `d` divides the selected
+cell · `shift`+`1`–`5` pushes it into a specialism · `1`–`9` or a click on the
+tree selects one · left click activates a gene, right
 click silences it, the same button again lifts it · `g` advances a generation.
 
 ### Inheritance
@@ -59,6 +60,70 @@ The milestone's acceptance — *the player is visibly reluctant to divide a badl
 configured cell* — is a claim about a person and cannot be self-assessed. What
 can be, and is: the problem really is copied, copying really does cost, and the
 difference between chosen and inherited is on the page.
+
+### Junctions, and why specialists are hard
+
+Cells exchange metabolites through junctions, and a junction does exactly one
+thing: it lets a substance move **down its concentration gradient**, at a
+limited rate, never the other way. There is no routing, no logistics network,
+and nothing to lay out. You create the gradients by choosing who produces what.
+
+Junctions form between a parent and its daughter and nowhere else, so **the
+shape of the lineage is the transport network**. Two properties do the rest:
+
+- **Throughput is shared.** A cell with four junctions moves a quarter as much
+  through each, so a hub that feeds four daughters feeds each of them badly.
+- **Every hop costs**, because each one needs its own gradient to drive it.
+
+Nothing declares that a distant specialist starves. It falls out of those two
+facts. One feeder at the head of a chain of burners, after fifteen simulated
+minutes:
+
+| hops from the feeder | lactate | respiration | biomass |
+|---|---|---|---|
+| 1 | 3.96 | 1.24 | 315 |
+| 2 | 2.11 | 1.00 | 291 |
+| 3 | 1.37 | 0.63 | 265 |
+| 4 | 1.09 | 0.63 | 264 |
+
+And the plate says so in words, which is what makes the milestone's acceptance
+reachable — *the player works out that the specialist is too many hops from its
+supplier*:
+
+> **← pyruvate → lactate is starved of lactate**
+> the cell holds 1.28 of lactate and wants about 45.0 to run freely — 20% of
+> the way there.
+> *Cell 0 has 29.9 of lactate, 4 junctions away. Every hop needs its own
+> gradient to drive it, so most of it never arrives. Put a supplier closer, or
+> stop this cell needing one.*
+
+**The conserved carriers do not travel.** A cell that could be handed ATP by a
+neighbour would never need to make any, specialisation would cost nothing, and
+the trade the design rests on would evaporate. Every specialist keeps its own
+energy books. Palmitate does not cross either — a lipid specialist takes its own
+fat in.
+
+The pairing worth noticing is the feeder and the burner: one runs glycolysis
+hard and pours out lactate, the other takes lactate in and oxidises it. One
+cell's waste is the next one's fuel, and it is the only way carbon moves between
+members of a lineage.
+
+### Death
+
+The spec left this open to be decided here, and the answer is yes — **slowly,
+and with a great deal of warning**. A run collapsing for a reason the player
+could not have fixed in time is a worse outcome than one that merely scores
+badly; the honest failure state is finishing poorly, not dying.
+
+A cell that has genuinely stopped — no ATP at all — announces it and counts down
+for two minutes before it gives up. Recovery is three times faster than decline,
+so a dip is not a sentence. What it held goes back to the medium, atom for atom.
+
+The threshold is an *absolute* floor rather than a share of the adenylate pool,
+and that matters: a lean lineage of specialists runs at a very low charge quite
+happily, because upkeep saturates down as ATP falls. Culling those cells for
+being frugal would make specialisation unplayable. It is a generous reading, and
+it is deliberate.
 
 ### Being technical and still readable
 
@@ -146,19 +211,21 @@ constitution and diet, forty-five simulated minutes, best in bold:
 
 | | standard | low sugar | low fat | low protein | creamy | sparse | plain | rich |
 |---|---|---|---|---|---|---|---|---|
-| even | 0.206 | 0.208 | 0.154 | 0.211 | **0.216** | 0.191 | 0.145 | 0.065 |
-| poor sugar handling | 0.163 | **0.207** | 0.051 | 0.125 | 0.168 | 0.188 | 0.096 | 0.038 |
-| poor fat handling | **0.172** | 0.057 | 0.152 | 0.063 | 0.168 | 0.163 | 0.143 | 0.039 |
-| reduced respiration | 0.148 | 0.143 | 0.120 | 0.149 | **0.155** | 0.138 | 0.110 | 0.051 |
-| poor nitrogen clearance | 0.131 | 0.126 | 0.079 | **0.158** | 0.138 | 0.123 | 0.069 | 0.050 |
-| no milk tolerance | 0.206 | 0.210 | 0.156 | **0.213** | 0.198 | 0.189 | 0.147 | 0.065 |
-| thrifty | 0.197 | **0.214** | 0.159 | 0.193 | 0.204 | 0.195 | 0.149 | 0.064 |
+| even | 0.215 | 0.217 | 0.164 | 0.220 | **0.225** | 0.201 | 0.154 | 0.066 |
+| poor sugar handling | 0.171 | **0.216** | 0.057 | 0.131 | 0.175 | 0.197 | 0.104 | 0.040 |
+| poor fat handling | **0.182** | 0.059 | 0.162 | 0.065 | 0.173 | 0.173 | 0.152 | 0.042 |
+| reduced respiration | 0.195 | 0.188 | 0.167 | 0.193 | **0.202** | 0.184 | 0.154 | 0.062 |
+| poor nitrogen clearance | 0.147 | 0.143 | 0.090 | **0.173** | 0.155 | 0.138 | 0.076 | 0.052 |
+| no milk tolerance | **0.239** | 0.220 | 0.166 | 0.223 | 0.079 | 0.213 | 0.156 | 0.068 |
+| thrifty | 0.206 | **0.223** | 0.167 | 0.203 | 0.214 | 0.204 | 0.157 | 0.063 |
 
 Five of the six traits pick a different meal than an even constitution does, and
 the mismatches are brutal: a fat-averse lineage on the fat-bearing diet scores
-0.057 where an even one scores 0.208. Reduced respiration is the exception, and
-honestly so — it is a trait of *degree*, not of direction. It makes everything
-worse without changing what to eat, which is a real kind of trait to have.
+0.059 where an even one scores 0.217, and a milk-intolerant one on the dairy diet
+scores 0.079 against its own best of 0.239. Reduced respiration is the
+exception, and honestly so — it is a trait of *degree*, not of direction. It
+makes everything worse without changing what to eat, which is a real kind of
+trait to have.
 
 Nothing is hidden. Every constitution is printed in the appendix and the one
 this lineage holds is ticked, with what to do about it written underneath.
@@ -174,10 +241,12 @@ gradient closes and it stops absorbing. The cell that *can* overeat is the one
 whose constitution stops a pool ever coming down. A body that regulates its
 intake against one that cannot — that asymmetry is the whole diet axis.
 
-Milk intolerance stays the weakest trait, and for a related reason: absorbing
-less of one food barely matters to a lineage that was enzyme-limited anyway,
-unless the diet leans heavily on it. On the dairy-led diet it does cost — 0.198
-against 0.216 — which is the right shape, just a quiet one.
+Milk intolerance used to be the weakest trait, for a related reason: absorbing
+less of one food barely matters to a lineage that was enzyme-limited anyway. It
+now has a mechanism instead of a penalty — the milk sugar it cannot digest is
+fermented on the way in and **arrives as acid**, into a lineage with less room
+than most to hold it. A dairy-led diet congests it, and the trait went from the
+quietest in the game to one of the sharpest.
 
 ---
 
@@ -194,7 +263,7 @@ python -m passage --profile fermenting     # start from a given expression set
 python -m passage --shot page.png --grow   # one frame to a PNG, no display needed
 python -m passage.debug.testpage a0.png    # the A0 materials page
 python -m passage --headless --ticks 50000 --trace
-python -m pytest                           # 113 tests
+python -m pytest                           # 128 tests
 ```
 
 `--shot` exists because the art direction cannot be checked without looking at
@@ -463,7 +532,8 @@ passage/
     cell.py         a named view onto one row of the arrays
     marks.py        the mark system: cost, persistence, and the price of change
     diagnose.py     why a reaction is slow, in plain words, with numbers
-    lineage.py      division, inheritance, drift, and the tree
+    lineage.py      division, inheritance, drift, death, and the tree
+    transport.py    junctions: gradients, shared throughput, and distance
     vigour.py       relish, damage, and what the lineage carries
   render/
     ink.py          the six primitives: paper, line, curve, wash, leader, hand
@@ -486,8 +556,7 @@ spec puts the target and rates on the right but named no module for them.
 
     data/foods.py, data/constitutions.py — the diet and the genome dealt
 
-Still to come, in milestone order: `bio/transport.py` (junctions between cells,
-M4), diet adoption (M5), and fixation (M6).
+Still to come, in milestone order: diet adoption (M5) and fixation (M6).
 
 ---
 

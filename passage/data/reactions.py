@@ -152,7 +152,11 @@ EXCHANGE: list[Reaction] = [
     _r("exchange_o2", "oxygen", {"o2": 1}, {"o2": 1}, "resp_o2", 20.0, exchange=True),
     _r("exchange_palmitate", "palmitate", {"palmitate": 1}, {"palmitate": 1}, "cd36", 1.5, exchange=True),
     _r("exchange_glutamate", "glutamate", {"glutamate": 1}, {"glutamate": 1}, "aat", 2.5, exchange=True),
-    _r("exchange_lactate", "lactate", {"lactate": 1}, {"lactate": 1}, "mct", 14.0, exchange=True),
+    # Deliberately a poor conduit. Lactate is what one cell hands another, not
+    # something a lineage should be able to bus through the medium: if the
+    # bath carried it freely no cell would ever need a neighbour, and the whole
+    # transport design would be decorative.
+    _r("exchange_lactate", "lactate", {"lactate": 1}, {"lactate": 1}, "mct", 1.6, exchange=True),
     _r("exchange_co2", "carbon dioxide", {"co2": 1}, {"co2": 1}, "co2_vent", 3.0, exchange=True),
     _r("exchange_ammonia", "ammonia", {"ammonia": 1}, {"ammonia": 1}, "amt", 4.0, exchange=True),
 ]

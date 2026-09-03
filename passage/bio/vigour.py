@@ -91,8 +91,9 @@ class Vigour:
         for food_id, portions in self.diet.items():
             food = food_data.BY_ID[food_id]
             taken = portions * self._absorbs(food_id)
+            swap = self._redirects(food_id)
             for mid, amount in food.supplies.items():
-                i = n.mi(mid)
+                i = n.mi(swap.get(mid, mid))
                 self.flow.feed[i] += amount * taken
                 self.flow.target_medium[i] += amount * taken * tuning.MEDIUM_RICHNESS
                 self.flow.perfused[i] = 1.0
@@ -100,6 +101,11 @@ class Vigour:
     def _absorbs(self, food_id: str) -> float:
         c = getattr(self.flow, "constitution", None)
         return 1.0 if c is None else c.absorbs.get(food_id, 1.0)
+
+    def _redirects(self, food_id: str) -> dict[str, str]:
+        """What a food turns into for this body, if not what it is for others."""
+        c = getattr(self.flow, "constitution", None)
+        return {} if c is None else c.redirects.get(food_id, {})
 
     def _handles(self, food_id: str) -> float:
         """How much this body pays for a food, relative to a standard one."""
@@ -111,13 +117,17 @@ class Vigour:
         totals: dict[str, float] = {}
         for food_id, portions in self.diet.items():
             taken = portions * self._absorbs(food_id)
+            swap = self._redirects(food_id)
             for mid, amount in food_data.BY_ID[food_id].supplies.items():
-                totals[mid] = totals.get(mid, 0.0) + amount * taken
+                lands = swap.get(mid, mid)
+                totals[lands] = totals.get(lands, 0.0) + amount * taken
         out: dict[str, dict[str, float]] = {}
         for food_id, portions in self.diet.items():
             taken = portions * self._absorbs(food_id)
+            swap = self._redirects(food_id)
             out[food_id] = {
-                mid: (amount * taken / totals[mid]) if totals[mid] > 1e-9 else 0.0
+                mid: (amount * taken / totals[swap.get(mid, mid)]
+                      if totals[swap.get(mid, mid)] > 1e-9 else 0.0)
                 for mid, amount in food_data.BY_ID[food_id].supplies.items()}
         return out
 
@@ -141,8 +151,9 @@ class Vigour:
         for food_id, share in shares.items():
             food = food_data.BY_ID[food_id]
             intake = 0.0
+            swap = self._redirects(food_id)
             for mid, portion in share.items():
-                k = self._exchange_index(mid)
+                k = self._exchange_index(swap.get(mid, mid))
                 if k is None:
                     continue
                 for c in cells:

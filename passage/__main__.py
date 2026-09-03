@@ -31,7 +31,7 @@ from .bio.flow import Flow
 from .bio.lineage import Lineage
 from .bio.marks import Kind, Marks
 from .bio.vigour import Vigour
-from .data import constitutions
+from .data import constitutions, specialisms
 from .data.metabolites import Class, POOLED
 
 #: Opening books: mark sets a player could actually place, within the budget of
@@ -191,7 +191,12 @@ def run_window(profile: str, seed: int, silent: bool = False,
                         selected = born
                 elif pygame.K_1 <= event.key <= pygame.K_9:
                     want = event.key - pygame.K_1
-                    if want < len(lineage.members):
+                    if event.mod & pygame.KMOD_SHIFT:
+                        if want < len(specialisms.SPECIALISMS):
+                            if lineage.specialise(
+                                    selected, specialisms.SPECIALISMS[want].id):
+                                audio.scratch()
+                    elif want < len(lineage.members):
                         selected = want
                 elif event.key == pygame.K_F3:
                     plate = Plate(seed=int(np.random.default_rng().integers(1 << 20)))
@@ -233,7 +238,7 @@ def run_window(profile: str, seed: int, silent: bool = False,
         hand.draw(screen, marks)
         # If the selected cell has a problem, say what dividing would do with
         # it. Both daughters inherit the configuration, mistakes included.
-        trouble = doctor.bottlenecks(flow, marks, selected, 1)
+        trouble = doctor.bottlenecks(flow, marks, selected, 1, lineage)
         warning = ""
         if trouble and lineage.can_divide(selected):
             warning = (f"both daughters would inherit this: "
@@ -251,10 +256,11 @@ def run_window(profile: str, seed: int, silent: bool = False,
             row = (showing.id if showing.kind == "vessel"
                    else _row_for(flow.net, showing))
             if row:
-                margin.annotate(screen, doctor.of(flow, marks, row, selected),
+                margin.annotate(screen, doctor.of(flow, marks, row, selected,
+                                                  lineage),
                                 showing.anchor, seed=91)
         else:
-            worst = doctor.bottlenecks(flow, marks, selected, 1)
+            worst = doctor.bottlenecks(flow, marks, selected, 1, lineage)
             if worst:
                 margin.annotate(screen, worst[0],
                                 _anchor_for(plate, worst[0].row), seed=92)
@@ -347,7 +353,7 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
         vis.draw(screen, flow, cell, 1 / 60)
         hand.draw_debt(screen, marks)
         hand.draw(screen, marks)
-        trouble = doctor.bottlenecks(flow, marks, look, 1)
+        trouble = doctor.bottlenecks(flow, marks, look, 1, lineage)
         warning = (f"both daughters would inherit this: "
                    f"{trouble[0].headline.lower()}"
                    if trouble and lineage.can_divide(look) else "")

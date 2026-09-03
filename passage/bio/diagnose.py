@@ -92,24 +92,26 @@ class Diagnostician:
                           for i, m in enumerate(n.metabolites)}
         self.pathway_of = {r: name for name, rows in rxn_data.PATHWAYS.items()
                            for r in rows}
+        self.lineage = None
 
     # -- the public question -------------------------------------------------
     def of(self, flow: Flow, marks: Marks | None, row_id: str,
-           cell: int = 0) -> Reason:
+           cell: int = 0, lineage=None) -> Reason:
         n = self.net
+        self.lineage = lineage
         i = n.ri(row_id)
         if n.rows[i].exchange:
             return self._exchange(flow, row_id, i - n.n_internal, cell)
         return self._internal(flow, marks, row_id, i, cell)
 
     def bottlenecks(self, flow: Flow, marks: Marks | None, cell: int = 0,
-                    limit: int = 3) -> list[Reason]:
+                    limit: int = 3, lineage=None) -> list[Reason]:
         """The reactions costing this cell the most, worst first."""
         found = []
         for row in self.net.rows:
             if row.reverse:
                 continue
-            reason = self.of(flow, marks, row.id, cell)
+            reason = self.of(flow, marks, row.id, cell, lineage)
             if reason.is_bottleneck:
                 found.append(reason)
         found.sort(key=lambda r: -r.severity)
@@ -231,7 +233,8 @@ class Diagnostician:
         # solver uses: conc = Km * s / (1 - s)
         wants = float(flow.km[cell, j]) * FREELY / (1.0 - FREELY)
         met = n.metabolites[j]
-        supplier = self._best_supplier(flow, marks, worst_mid, cell)
+        supplier = self._neighbour(flow, worst_mid, cell) \
+            or self._best_supplier(flow, marks, worst_mid, cell)
 
         # A raised Michaelis constant is constitutional, and it is worth saying
         # so: this lineage needs more of the substance around than most does,
@@ -300,6 +303,36 @@ class Diagnostician:
             f"product pool pushes back on the step that fills it.",
             drain,
             severity, share, metabolite=met.id)
+
+    def _neighbour(self, flow: Flow, mid: str, cell: int) -> str:
+        """When the shortage is somebody else's surplus, say how far away it is.
+
+        The acceptance test for the transport milestone is a player working out
+        *on their own* that a specialist is starving because it sits too many
+        junctions from its supplier. This is the sentence that makes that
+        reachable: it names the cell, the distance, and the fact that distance
+        is what costs.
+        """
+        if self.lineage is None or not self.net.travels[self.net.mi(mid)]:
+            return ""
+        holder, hops = self.lineage.hops_to_supplier(cell, mid)
+        if holder is None:
+            return ""
+        met = self.net.metabolites[self.net.mi(mid)].label
+        held = flow.pools[holder, self.net.mi(mid)]
+        if hops is None:
+            return (f"Cell {holder} has {_plain(float(held))} of {met} and no "
+                    f"junction reaches it. Nothing crosses between cells that "
+                    f"are not joined — divide toward it, or feed this one "
+                    f"differently.")
+        if hops <= 1:
+            return (f"Cell {holder} next door has {_plain(float(held))} of "
+                    f"{met} and it is already coming across as fast as one "
+                    f"junction allows. This cell needs to make more of its own.")
+        return (f"Cell {holder} has {_plain(float(held))} of {met}, "
+                f"{hops} junctions away. Every hop needs its own gradient to "
+                f"drive it, so most of it never arrives. Put a supplier closer, "
+                f"or stop this cell needing one.")
 
     # -- following the trail one step further --------------------------------
     def _best_supplier(self, flow, marks, mid: str, cell: int) -> str:

@@ -34,8 +34,10 @@ import numpy as np
 from .. import tuning
 from .cell import Cell
 from .flow import Flow
-from .marks import Kind, Mark, Marks
+from ..data import specialisms as spec_data
+from .marks import Debt, Kind, Mark, Marks
 from .network import Network
+from .transport import Junctions
 
 
 @dataclass
@@ -47,7 +49,10 @@ class Member:
     parent: int | None = None
     born: int = 1                    # the generation it divided into being
     children: list[int] = field(default_factory=list)
+    specialism: str | None = None
     alive: bool = True
+    failing: float = 0.0             # seconds spent with no energy at all
+    died: int | None = None          # the generation it gave up in
 
     @property
     def depth(self) -> int:
@@ -74,6 +79,7 @@ class Lineage:
         self.rng = np.random.default_rng(seed)
         self.generation = marks.generation
         self.members: list[Member] = [Member(index=0, marks=marks)]
+        self.junctions = Junctions(self.net)
         self.drifted: list[Drift] = []
         self.divisions = 0
 
@@ -145,6 +151,11 @@ class Lineage:
         # second-hand because the cell holding it divided -- only the copy that
         # travelled is inherited, and only that copy fades.
 
+        # A junction forms between parent and daughter, and only there. The
+        # tree *is* the transport network, which is why the shape of it is a
+        # decision and not a picture of one.
+        self.junctions.add(index, daughter_index)
+
         member = Member(index=daughter_index, marks=daughter_marks,
                         parent=index, born=self.generation)
         parent.children.append(daughter_index)
@@ -160,13 +171,10 @@ class Lineage:
 
     # -- differentiation (spec 3.5) -----------------------------------------
     def differentiate(self, index: int, bundle: dict[str, Kind]) -> int:
-        """Push a cell's marks toward a specialism, in bulk.
+        """Place a bundle of marks, within the budget. The budget is the budget.
 
-        Not a class system with names and portraits -- simply a bulk mark
-        operation. A cell heavily marked toward one pathway *is* a specialist
-        whether or not this shortcut was used to get there. Returns how many
-        marks were actually placed, which may be fewer than asked for: the
-        budget is the budget.
+        Returns how many were actually placed, which may be fewer than asked
+        for.
         """
         marks = self.members[index].marks
         placed = 0
@@ -174,6 +182,36 @@ class Lineage:
             if marks.place(gene, kind):
                 placed += 1
         return placed
+
+    def specialise(self, index: int, specialism: str) -> bool:
+        """Push a cell wholesale into a specialism, for one flat charge.
+
+        The inherited configuration is cleared rather than lifted mark by mark:
+        that is what the player is paying for. What they are *not* escaping is
+        the cost -- a flat charge against the same eight marks, on top of the
+        marks the new pattern itself holds. A fixed mark is not cleared, because
+        nothing clears a fixed mark.
+        """
+        spec = spec_data.BY_ID[specialism]
+        marks = self.members[index].marks
+        wanted = len(spec.activate) + len(spec.silence)
+        if marks.budget - tuning.DIFFERENTIATION_COST < wanted:
+            return False
+
+        for gene in list(marks.marks):
+            if not marks.marks[gene].fixed:
+                del marks.marks[gene]
+        marks.debts.append(Debt(gene=f"differentiate:{specialism}",
+                                amount=tuning.DIFFERENTIATION_COST,
+                                generation=self.generation))
+        for gene in spec.activate:
+            marks.place(gene, Kind.ACTIVATING)
+        for gene in spec.silence:
+            marks.place(gene, Kind.SILENCING)
+        marks.history.append(f"g{self.generation}: became a {spec.label}")
+        self.members[index].specialism = specialism
+        marks._apply()
+        return True
 
     # -- time ---------------------------------------------------------------
     def advance_generation(self) -> None:
@@ -184,6 +222,76 @@ class Lineage:
     def update(self, dt: float) -> None:
         for member in self.members:
             member.marks.update(dt)
+        self.junctions.step(self.flow, dt)
+        self._fail(dt)
+
+    # -- death, slowly and with warning -------------------------------------
+    def _fail(self, dt: float) -> None:
+        """Track how long each cell has had nothing left, and end it if it lasts.
+
+        A cell running lean is not a cell dying. What kills is having genuinely
+        stopped -- no ATP at all -- for long enough that it was never coming
+        back. Recovery is faster than decline, so a cell that dips and recovers
+        is not quietly condemned by it.
+        """
+        atp = self.net.mi("atp")
+        for member in self.members:
+            if not member.alive:
+                continue
+            if self.flow.pools[member.index, atp] < tuning.DEATH_ATP:
+                member.failing += dt
+                if member.failing >= tuning.DEATH_PATIENCE:
+                    self.kill(member.index)
+            else:
+                member.failing = max(
+                    0.0, member.failing - dt * tuning.DEATH_RECOVERY)
+
+    def kill(self, index: int) -> None:
+        """A cell stops. What it held goes back to the medium, atom for atom."""
+        member = self.members[index]
+        if not member.alive:
+            return
+        member.alive = False
+        member.died = self.generation
+        n = self.net
+        released = self.flow.pools[index].copy()
+        self.flow.pools[index] = 0.0
+        self.flow.medium += np.where(n.buffered, 0.0, released)
+        self.junctions.drop_cell(index)
+
+    def failing_for(self, index: int) -> float:
+        return self.members[index].failing
+
+    def doom(self, index: int) -> str:
+        """What the margin says about a cell that is running out of time."""
+        member = self.members[index]
+        if not member.alive:
+            return f"stopped in generation {member.died}"
+        if member.failing <= 0.5:
+            return ""
+        left = tuning.DEATH_PATIENCE - member.failing
+        return f"no energy at all for {member.failing:.0f}s — {left:.0f}s left"
+
+    @property
+    def dead(self) -> list[Member]:
+        return [m for m in self.members if not m.alive]
+
+    def hops_to_supplier(self, index: int, mid: str) -> tuple[int | None, int | None]:
+        """Which living cell holds most of a substance, and how far away it is.
+
+        The answer the acceptance test wants a player to reach on their own:
+        *this cell is starving because it is three junctions from the only cell
+        making what it needs.*
+        """
+        i = self.net.mi(mid)
+        best, best_held = None, self.flow.pools[index, i]
+        for member in self.living:
+            held = self.flow.pools[member.index, i]
+            if held > best_held * 1.5:
+                best, best_held = member.index, held
+        if best is None:
+            return None, None
+        return best, self.junctions.hops(index, best)
 
     # -- what the margin draws ----------------------------------------------
     def tree(self) -> list[tuple[int, int, int | None]]:

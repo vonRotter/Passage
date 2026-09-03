@@ -81,24 +81,33 @@ def draw(surface: pygame.Surface, lineage: Lineage, selected: int,
          warning: str = "") -> None:
     where = positions(lineage)
 
-    # the branches first, in pencil, so the cells sit on top of them
+    # The branches first, in pencil, so the cells sit on top of them. A branch
+    # is also a junction, so its weight is the traffic actually crossing it:
+    # the tree is the transport network and the record should say so.
     for member in lineage.members:
         if member.parent is None:
             continue
         px, py = where[member.parent]
         cx, cy = where[member.index]
+        carrying = lineage.junctions.hops(member.parent, member.index) == 1
+        traffic = lineage.junctions.traffic(member.index) if carrying else 0.0
+        weight = 0.5 + min(1.4, traffic * 0.35)
         ink.ink_curve(surface, [(px, py + NODE), (px, (py + cy) / 2),
                                 (px + 6, cy), (cx - NODE, cy)],
-                      0.6, seed=940 + member.index, colour=palette.PENCIL,
-                      alpha=0.75)
+                      weight if carrying else 0.4, seed=940 + member.index,
+                      colour=palette.PENCIL, alpha=0.8 if carrying else 0.3)
 
     for member in lineage.members:
         cell = Cell(lineage.flow, member.index)
         weights, strength = cell.cast()
         x, y = where[member.index]
-        surface.blit(_node(palette.blend(weights), strength,
+        surface.blit(_node(palette.blend(weights),
+                           strength * (0.2 if not member.alive else 1.0),
                            member.index == selected, member.index % 8),
                      (int(x - SIDE / 2), int(y - SIDE / 2)))
+        if not member.alive:
+            ink.hand_mark(surface, "cross", (x, y), seed=970 + member.index,
+                          size=7.0, colour=palette.PENCIL, fade=0.3)
         if len(lineage.members) <= 16:
             typo.draw(surface, f"{member.index}", (x + NODE + 6, y - 7), 9,
                       palette.INK if member.index == selected else palette.PENCIL,
@@ -118,7 +127,13 @@ def _selected_state(surface: pygame.Surface, lineage: Lineage,
     member = lineage.members[selected]
 
     typo.caps(surface, f"cell {selected}", (x, y), 9, palette.INK_FAINT, 1.6)
-    typo.draw(surface, cell.dominant_pathway(), (x, y + 16), 11, palette.INK, 0.2)
+    if member.specialism:
+        from ..data import specialisms as spec_data
+        typo.draw(surface, spec_data.BY_ID[member.specialism].label,
+                  (x, y + 16), 11, palette.INK, 0.2)
+    else:
+        typo.draw(surface, cell.dominant_pathway(), (x, y + 16), 11,
+                  palette.INK, 0.2)
 
     state = ("starving" if cell.starving()
              else "spilling" if cell.spilling() else "running")
@@ -135,8 +150,21 @@ def _selected_state(surface: pygame.Surface, lineage: Lineage,
         typo.draw(surface, f"from cell {member.parent}, generation {member.born}",
                   (x, y + 84), 9, palette.PENCIL, 0.2)
 
+    doom = lineage.doom(selected)
+    if doom:
+        for i, line in enumerate(_wrap(doom, 9, layout.ROSTER[2] - 30)):
+            typo.draw(surface, line, (x, y + 96 + i * 12), 9, palette.ALARM, 0.2)
+        return
+
+    hops = lineage.junctions.degree(selected)
+    if hops:
+        typo.draw(surface,
+                  f"{hops} junction{'s' if hops != 1 else ''}, "
+                  f"{lineage.junctions.traffic(selected):.1f}/s across",
+                  (x, y + 96), 9, palette.PENCIL, 0.2)
+
     reason = lineage.why_not_divide(selected)
-    typo.draw(surface, reason or "ready to divide  ·  d", (x, y + 106), 10,
+    typo.draw(surface, reason or "ready to divide  ·  d", (x, y + 112), 10,
               palette.PENCIL if reason else palette.INK, 0.2)
 
     # What dividing would actually do. The milestone turns on a player being
@@ -144,7 +172,7 @@ def _selected_state(surface: pygame.Surface, lineage: Lineage,
     # reluctant about something they were told.
     if not reason and warning:
         for i, line in enumerate(_wrap(warning, 9, layout.ROSTER[2] - 30)):
-            typo.draw(surface, line, (x, y + 122 + i * 12), 9, palette.ALARM, 0.2)
+            typo.draw(surface, line, (x, y + 128 + i * 12), 9, palette.ALARM, 0.2)
 
 
 def _wrap(text: str, size: int, width: float) -> list[str]:
