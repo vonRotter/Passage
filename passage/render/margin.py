@@ -75,6 +75,36 @@ def annotate(surface: pygame.Surface, reason: Reason, anchor: tuple[float, float
             y += 14
 
 
+def diet_change(surface: pygame.Surface, report, left: float) -> None:
+    """What a change of diet just did to the register, in the margin.
+
+    This takes the annotation slot from the bottleneck note while it is up,
+    because for the next half minute it *is* the bottleneck: a configuration
+    that no longer matches what is arriving will produce a shortage report that
+    names a symptom, and this names the cause.
+    """
+    y = NOTE_TOP
+    typo.draw(surface, f"now eating {report.now}", (MARGIN_X, y), 12,
+              palette.INK, 0.3)
+    y += 18
+    if report.quiet:
+        typo.draw(surface, f"Nothing on the register was placed for what "
+                           f"{report.was} brought that this does not.",
+                  (MARGIN_X, y), 11, palette.PENCIL, 0.2)
+        return
+    for line in report.lines:
+        for wrapped in wrap(line, 11, MARGIN_WIDTH):
+            if y > NOTE_BOTTOM - 16:
+                typo.draw(surface, "…", (MARGIN_X, y), 11, palette.PENCIL)
+                return
+            typo.draw(surface, wrapped, (MARGIN_X, y), 11, palette.PENCIL, 0.2)
+            y += 14
+        y += 6
+    if left > 0.5 and y < NOTE_BOTTOM - 14:
+        typo.draw(surface, f"the medium is still turning over — {left:.0f}s",
+                  (MARGIN_X, NOTE_BOTTOM - 2), 10, palette.INK_FAINT, 0.2)
+
+
 def budget(surface: pygame.Surface, marks: Marks) -> None:
     """What the player has spent, and what lifting a mark is still costing them."""
     x, right = MARGIN_X, layout.WINDOW[0] - 22

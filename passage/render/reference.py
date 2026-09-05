@@ -49,13 +49,14 @@ class Reference:
     """Three pages, inked once each, turned with the arrow keys."""
 
     TITLES = ("the substances", "the reactions", "the genes", "the diet",
-              "the constitution", "specialisms")
+              "the kitchen", "the constitution", "specialisms")
     SUBTITLES = (
         "what is in the cell, what makes it, and what uses it up",
         "every row balances on a real atom count; water and phosphate are "
         "present where the chemistry needs them but never limit anything",
         "what marking one would change, and what it idles at if you leave it",
         "relish against damage, and what it leaves behind",
+        "what this lineage eats — press a number to change it",
         "the genome this lineage was dealt, which no mark will change",
         "what a cell can be pushed into being, and what it gives up for it",
     )
@@ -96,7 +97,7 @@ class Reference:
         ink.ink_line(surface, (MARGIN, 78), (layout.WINDOW[0] - MARGIN, 78),
                      0.7, 5000 + page, palette.INK, 0.55)
         [self._substances, self._reactions, self._genes, self._diet,
-         self._constitution, self._specialisms][page](surface)
+         self._kitchen, self._constitution, self._specialisms][page](surface)
         ink.ink_line(surface, (MARGIN, 684), (layout.WINDOW[0] - MARGIN, 684),
                      0.6, 5100 + page, palette.INK, 0.4)
         return surface
@@ -217,6 +218,90 @@ class Reference:
             typo.draw(surface, line, (MARGIN, 646 + i * 13), 10,
                       palette.PENCIL, 0.2)
 
+
+    #: The page a diet is chosen from. Its own index, so the run can tell
+    #: whether a number key means "adopt this diet" or "select that cell".
+    KITCHEN = 4
+
+    def _kitchen(self, surface: pygame.Surface) -> None:
+        """The menu. Which diet is being eaten is drawn over this, not into it.
+
+        Everything else in the appendix is true for the whole run and is inked
+        once. This page is the one thing in it the player changes, so the page
+        is the menu and the tick against the current line is an overlay.
+        """
+        from ..bio import kitchen as kitchen_data
+        from ..data import foods as food_data
+
+        intro = ("A diet is not a modifier on the standard broth — it is the "
+                 "broth. Change it and the medium turns over at the rate "
+                 "perfusion can carry: for twenty or thirty seconds the cell "
+                 "eats something that is neither one diet nor the other, and "
+                 "there is no way to skip that. Damage already done does not "
+                 "come back either.")
+        for i, line in enumerate(_wrap(intro, 11,
+                                       layout.WINDOW[0] - MARGIN * 2)):
+            typo.draw(surface, line, (MARGIN, TOP - 6 + i * 15), 11,
+                      palette.INK, 0.2)
+        typo.draw(surface,
+                  "What it costs is the register. Marks placed for a gate that "
+                  "has just closed are worth nothing, lifting costs more than "
+                  "placing did, and the oldest marks cost the most — so a "
+                  "change of diet is a bill, not a re-roll.",
+                  (MARGIN, TOP + 26), 11, palette.PENCIL, 0.2)
+
+        head = TOP + 56
+        for label, x, align in (("diet", 30, "left"),
+                                ("what it serves", 230, "left"),
+                                ("sugar", 700, "right"), ("fat", 776, "right"),
+                                ("amino", 858, "right"),
+                                ("relish", 946, "right"),
+                                ("harm", 1022, "right")):
+            typo.caps(surface, label, (MARGIN + x, head), 8,
+                      palette.INK_FAINT, 1.2, align=align)
+        ink.ink_line(surface, (MARGIN, head + 14),
+                     (layout.WINDOW[0] - MARGIN, head + 14), 0.5, 5300,
+                     palette.INK, 0.4)
+
+        y = head + 26
+        for n, (name, diet) in enumerate(food_data.MENU.items()):
+            typo.draw(surface, str(n + 1), (MARGIN, y), 11, palette.PENCIL, 0.2)
+            typo.draw(surface, name, (MARGIN + 30, y), 12, palette.INK, 0.2)
+            # the three largest portions and a count of the rest: the whole
+            # list will not fit beside the columns, and the tail of a diet is
+            # never what distinguishes it from another
+            ranked = sorted(diet.items(), key=lambda kv: -kv[1])
+            served = " · ".join(f"{food_data.BY_ID[f].label} {p:.2g}"
+                                for f, p in ranked[:3])
+            if len(ranked) > 3:
+                served += f" · and {len(ranked) - 3} more"
+            typo.draw(surface, served, (MARGIN + 230, y), 10, palette.PENCIL, 0.2)
+            at = kitchen_data.gates(diet, self.constitution)
+            for mid, x in (("glucose", 700), ("palmitate", 776),
+                           ("glutamate", 858)):
+                typo.draw(surface, f"{at.get(mid, 0.0):.1f}", (MARGIN + x, y),
+                          10, palette.PENCIL, 0.0, align="right")
+            relish = sum(food_data.BY_ID[f].relish * p for f, p in diet.items())
+            harm = sum(food_data.BY_ID[f].harm * p for f, p in diet.items())
+            typo.draw(surface, f"{relish:.2f}", (MARGIN + 946, y), 10,
+                      palette.PENCIL, 0.0, align="right")
+            typo.draw(surface, f"{harm:.2f}",
+                      (MARGIN + 1022, y), 10,
+                      palette.ALARM if harm > 1.4 else palette.PENCIL, 0.0,
+                      align="right")
+            y += 30
+
+        typo.draw(surface,
+                  "The relish and harm columns are per portion served, not per "
+                  "portion eaten. Transport is passive: what a cell actually "
+                  "takes in depends on what it can clear, so a diet that looks "
+                  "cheap on this page can still be expensive to the body "
+                  "holding it.",
+                  (MARGIN, 646), 10, palette.PENCIL, 0.2)
+
+    def kitchen_row(self, n: int) -> tuple[float, float]:
+        """Where the tick against diet ``n`` goes, in window pixels."""
+        return (MARGIN - 14, TOP + 56 + 26 + n * 30 + 6)
 
     def _constitution(self, surface: pygame.Surface) -> None:
         from ..data import constitutions as con_data

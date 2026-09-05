@@ -8,22 +8,26 @@ Everything you switch off stays off, in every cell that comes after.
 
 ---
 
-## State: M4 — specialists and transport
+## State: M5 — the kitchen, and the invalidation cycle
 
 The player marks genes on a printed register, and the plate says in plain words
 what is wrong, in what quantity, and whose fault it is. On top of that, a second
-axis the build spec did not have: **relish against damage**.
+axis the build spec did not have: **relish against damage**. And now the thing
+that makes the register a standing decision rather than a puzzle solved once —
+**you choose what to eat, and choosing again invalidates what you configured**.
 
 ```
 startgame.bat                              # Windows: double-click
 python -m passage                          # the plate, 1280x720
 python -m passage --shot page.png --grow   # one frame to a PNG, no display needed
 python -m passage --shot ref.png --page 3  # a page of the appendix
+python -m passage --eat "low sugar"        # start on a diet other than the default
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 130 tests
+python -m pytest                           # 141 tests
 ```
 
-`space` pauses · `tab` opens the appendix (six pages) · `d` divides the selected
+`space` pauses · `tab` opens the appendix (seven pages; `1`–`8` on the
+kitchen page changes the diet) · `d` divides the selected
 cell · `shift`+`1`–`5` pushes it into a specialism · `1`–`9` or a click on the
 tree selects one · left click activates a gene, right
 click silences it, the same button again lifts it · `g` advances a generation.
@@ -107,6 +111,86 @@ The pairing worth noticing is the feeder and the burner: one runs glycolysis
 hard and pours out lactate, the other takes lactate in and oxidises it. One
 cell's waste is the next one's fuel, and it is the only way carbon moves between
 members of a lineage.
+
+### The kitchen, and what changing your mind costs
+
+The diet is now the player's, chosen from the appendix's kitchen page and
+changed whenever they like. It is not a difficulty setting and it is not a
+modifier on a standard broth: **a diet is the broth**. Living on sweets means
+the culture around the cell is sugar and very little else, and every consequence
+follows from that rather than from a rule saying sweets are bad. Transport is
+passive, so a cell surrounded by sugar takes sugar in whether it can use it or
+not. It cannot decline.
+
+Adoption is not a fifth verb. There is no button for taking up fat; a pathway is
+adopted when the player puts a mark on one of the genes that opens it, out of
+the same budget of eight everything else comes from, and it fades back out if
+they lift the mark. The plate prints unadopted pathways faintly from the first
+second — so you can see what exists before you can use it — and inks them up, in
+a second pass over the top of the faded print, when you commit.
+
+The half that makes this a milestone rather than a menu is what a change does to
+the register:
+
+> **now eating low sugar**
+> Your marks on glucose transporter, PFK-1 and GAPDH/PGK/PK were placed for
+> sugar, and this diet brings 28% as much of it.
+> *Palmitate arrives 5.1 times faster and nothing is marked to take it in. It
+> will sit in the medium until something is.*
+
+Three things stop the cycle becoming a flap between menus:
+
+- **The medium turns over, it does not switch.** Perfusion is rate-limited in
+  both directions, so a change takes real seconds to arrive and the old food is
+  still there while it does. What the cell meets in between is a broth that is
+  neither diet, and it has to eat it.
+- **Damage does not reset.** Whatever the last diet did to this lineage, it
+  keeps.
+- **Lifting costs more than placing did, and the oldest marks cost the most.**
+  A change of diet is a bill, not a re-roll.
+
+Only the player's *own* activating marks are named. A mark inherited from a
+parent was not this player's bet, and blaming them for it would be the game
+telling them off for something they did not do.
+
+#### That the configuration and the diet actually have to agree
+
+Three mark sets against four diets, four hundred simulated seconds each, biomass
+and score:
+
+| | low fat | low sugar | plain | rich |
+|---|---|---|---|---|
+| **sugar-set** | 321 / 0.162 | 333 / 0.165 | 313 / 0.150 | 192 / 0.057 |
+| **fat-set** | 35 / 0.073 | 263 / **0.308** | 34 / 0.068 | 258 / 0.276 |
+| **mixed** | 188 / 0.145 | 279 / 0.183 | 186 / 0.136 | 227 / 0.094 |
+
+The fat set is ruinous on a diet with no fat in it and produces the best score
+in the table on one that has. The sugar set holds its output almost anywhere —
+sugar is the universal fuel and the transporter idles at 0.40 whether you mark
+it or not — but its score collapses on the rich diet, because output bought with
+damage is output the score refuses to pay full price for. Hedging is mediocre
+everywhere, which is the point of hedging.
+
+The best cell in the table needs both halves right. That is the cycle.
+
+#### One thing worth knowing before tuning this
+
+Every set that does well marks the **amino acid transporter**. Nitrogen uptake,
+not carbon, is what caps growth if you leave it alone: glutamate sits at 3% of
+capacity in a cell that has not marked `aat`, and no amount of getting the
+carbon side right will move it. So the real budget is seven marks and a
+compulsory one, which is not what `tuning.py` says it intended — the comment
+there reads "nitrogen must not be the hard cap on growth, or no mark on the
+carbon side of the plate can ever change anything." It is a hard cap, and the
+mark that lifts it is one the player has to find.
+
+I have left it, for now, because it is a discoverable constraint rather than a
+hidden one: the margin says the cell is short of glutamate, the appendix says
+which gene takes glutamate in, and a player who reads either will place it. But
+it is a forced move, and a forced move in a budget of eight is worth calling a
+fault rather than a feature. Raising `MEDIUM_TARGET["glutamate"]` or dropping
+biosynthesis's nitrogen cost would free it, at the price of making the nitrogen
+corner of the plate decorative.
 
 ### Death
 
@@ -600,6 +684,7 @@ passage/
     lineage.py      division, inheritance, drift, death, and the tree
     transport.py    junctions: gradients, shared throughput, and distance
     vigour.py       relish, damage, and what the lineage carries
+    kitchen.py      choosing a diet, and what changing it strands
   render/
     ink.py          the six primitives: paper, line, curve, wash, leader, hand
     palette.py      the six class washes and the one alarm colour
@@ -608,6 +693,8 @@ passage/
     flow_vis.py     pool washes, cell tint, the flow animation
     roster.py       the left margin
     panel.py        the right margin
+    margin.py       the player's own hand: marks, notes, the diet report
+    reference.py    the appendix, seven pages, inked one page at a time
   debug/
     overlay.py      F-keys: rates, mass balance, timing
     testpage.py     the A0 materials page
@@ -621,7 +708,7 @@ spec puts the target and rates on the right but named no module for them.
 
     data/foods.py, data/constitutions.py — the diet and the genome dealt
 
-Still to come, in milestone order: diet adoption (M5) and fixation (M6).
+Still to come: fixation and the full run (M6).
 
 ---
 

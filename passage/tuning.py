@@ -197,6 +197,11 @@ CONGESTION_DAMAGE = 22.0
 # ever hurt anybody, because the cell simply declines to absorb what it does
 # not need.
 MEDIUM_RICHNESS = 11.0
+# How long the margin holds a change of diet, which is also roughly how long
+# the medium takes to turn over at the perfusion rates above. The number is not
+# a timer on a mechanic -- nothing stops when it runs out -- it is how long the
+# player is told that what they are looking at is a transition.
+DIET_TURNOVER = 30.0
 DAMAGE_HALF = 240.0          # accumulated damage at which vigour reads a half
 UPKEEP_PENALTY = 2.6        # how much more a worn-out lineage pays just to exist
 

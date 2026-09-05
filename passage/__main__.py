@@ -31,7 +31,7 @@ from .bio.flow import Flow
 from .bio.lineage import Lineage
 from .bio.marks import Kind, Marks
 from .bio.vigour import Vigour
-from .data import constitutions, specialisms
+from .data import constitutions, foods, specialisms
 from .data.metabolites import Class, POOLED
 
 #: Opening books: mark sets a player could actually place, within the budget of
@@ -63,6 +63,7 @@ def build(profile: str, seed: int,
                     else constitutions.BY_ID[constitutions.DEFAULT])
     vigour = Vigour(flow, diet)
     marks = Marks(flow, 0)
+    vigour.marks = marks           # so a change of diet can name what it stranded
     for gene, sign in PROFILES[profile]:
         marks.place(gene, Kind.ACTIVATING if sign == "+" else Kind.SILENCING)
     flow.settle()
@@ -114,14 +115,15 @@ KEY_HELP = """
 
 
 def run_window(profile: str, seed: int, silent: bool = False,
-               constitution: str | None = None) -> int:
+               constitution: str | None = None, eat: str | None = None) -> int:
     """The game loop. Sim at a fixed 20 Hz, render at 60."""
     os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
     import pygame
 
     from .render.flow_vis import FlowVis
+    from .render import plate as plate_mod
     from .render.plate import Plate
-    from .render import interact, margin, panel, reference, roster
+    from .render import ink, interact, margin, panel, reference, roster
     from .bio.diagnose import Diagnostician
     from .bio.marks import Kind
     from .debug import overlay
@@ -133,7 +135,10 @@ def run_window(profile: str, seed: int, silent: bool = False,
     pygame.display.set_caption("Passage")
     clock = pygame.time.Clock()
 
-    flow, marks, vigour = build(profile, seed, constitution=constitution)
+    flow, marks, vigour = build(profile, seed, constitution=constitution,
+                                diet=foods.MENU[eat] if eat else None)
+    if eat:
+        vigour.served = eat
     plate = Plate(seed=seed + 4, constitution=flow.constitution)
     vis = FlowVis(plate)
     debug = overlay.Overlay()
@@ -147,6 +152,11 @@ def run_window(profile: str, seed: int, silent: bool = False,
     hover: interact.Target | None = None
     pinned: interact.Target | None = None
     reference_open = False
+    # A change of diet holds the margin for as long as the medium takes to turn
+    # over, which is also how long the cell is eating something that is neither
+    # diet. After that the ordinary bottleneck note has it back.
+    upset = None
+    upset_left = 0.0
     paused = False
     accumulator = 0.0
     elapsed = 0.0
@@ -182,6 +192,15 @@ def run_window(profile: str, seed: int, silent: bool = False,
                     reference_open = not reference_open
                 elif reference_open and event.key in (pygame.K_LEFT, pygame.K_RIGHT):
                     appendix.turn(1 if event.key == pygame.K_RIGHT else -1)
+                elif (reference_open and appendix.page == reference.Reference.KITCHEN
+                      and pygame.K_1 <= event.key <= pygame.K_9):
+                    want = event.key - pygame.K_1
+                    menu = list(foods.MENU.items())
+                    if want < len(menu) and menu[want][0] != vigour.served:
+                        name, diet = menu[want]
+                        upset = vigour.serve(diet, name)
+                        upset_left = tuning.DIET_TURNOVER
+                        audio.scratch()
                 elif event.key == pygame.K_g:
                     lineage.advance_generation()
                 elif event.key == pygame.K_d:
@@ -213,6 +232,7 @@ def run_window(profile: str, seed: int, silent: bool = False,
                 vigour.update(tuning.DT)
                 accumulator -= tuning.DT
                 elapsed += tuning.DT
+                upset_left = max(0.0, upset_left - tuning.DT)
 
         selected = min(selected, flow.n_cells - 1)
         cell = Cell(flow, selected)
@@ -220,6 +240,12 @@ def run_window(profile: str, seed: int, silent: bool = False,
 
         if reference_open:
             screen.blit(appendix.surface(), (0, 0))
+            if appendix.page == reference.Reference.KITCHEN:
+                served = list(foods.MENU).index(vigour.served) \
+                    if vigour.served in foods.MENU else None
+                if served is not None:
+                    ink.hand_mark(screen, "tick", appendix.kitchen_row(served),
+                                  seed=ink.seed_of(vigour.served, 7), size=10.0)
             audio.update(frame)
             pygame.display.flip()
             continue
@@ -234,6 +260,13 @@ def run_window(profile: str, seed: int, silent: bool = False,
                 audio.sour()
         audio.update(frame)
         screen.blit(plate.surface, (0, 0))
+        # what the lineage has taken up, gone over a second time at printed
+        # weight. Read off the register every frame, so lifting the marks fades
+        # the pathway back out.
+        plate.adopted = plate_mod.taken_up(marks)
+        layer = plate.inked_up(plate.adopted)
+        if layer is not None:
+            screen.blit(layer, (0, 0))
         vis.draw(screen, flow, cell, 0.0 if paused else frame)
         hand.draw_debt(screen, marks)
         hand.draw(screen, marks)
@@ -253,7 +286,9 @@ def run_window(profile: str, seed: int, silent: bool = False,
         # its own, because a player should not have to go looking for the thing
         # that is wrong.
         showing = pinned or hover
-        if showing is not None:
+        if upset is not None and upset_left > 0 and showing is None:
+            margin.diet_change(screen, upset, upset_left)
+        elif showing is not None:
             row = (showing.id if showing.kind == "vessel"
                    else _row_for(flow.net, showing))
             if row:
@@ -309,7 +344,8 @@ def tuning_window():
 
 def run_shot(profile: str, seed: int, ticks: int, path: str,
              page: int | None = None, constitution: str | None = None,
-             grow: bool = False, watch: int = 0) -> int:
+             grow: bool = False, watch: int = 0, eat: str | None = None,
+             switch: str | None = None) -> int:
     """Render one frame of a settled run to a PNG and exit.
 
     The plate is the deliverable of this milestone, so being able to look at it
@@ -320,15 +356,25 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
     import pygame
 
     from .render.flow_vis import FlowVis
+    from .render import plate as plate_mod
     from .render.plate import Plate
     from .render import margin, panel, reference, roster
     from .bio.diagnose import Diagnostician
 
     pygame.init()
     pygame.display.set_mode((1, 1))
-    flow, marks, vigour = build(profile, seed, constitution=constitution)
+    flow, marks, vigour = build(profile, seed, constitution=constitution,
+                                diet=foods.MENU[eat] if eat else None)
+    if eat:
+        vigour.served = eat
     lineage = Lineage(flow, marks, seed=seed)
+    upset = None
+    # halfway through, so a --switch shot shows a medium mid-turnover rather
+    # than one that has already settled into the new diet
+    at = ticks // 2
     for tick in range(ticks):
+        if switch and tick == at:
+            upset = vigour.serve(foods.MENU[switch], switch)
         flow.step()
         lineage.update(tuning.DT)
         vigour.update(tuning.DT)
@@ -351,6 +397,10 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
         hand = margin.RegisterHand(flow.net)
         doctor = Diagnostician(flow.net)
         screen.blit(plate.surface, (0, 0))
+        plate.adopted = plate_mod.taken_up(marks)
+        layer = plate.inked_up(plate.adopted)
+        if layer is not None:
+            screen.blit(layer, (0, 0))
         vis.draw(screen, flow, cell, 1 / 60)
         hand.draw_debt(screen, marks)
         hand.draw(screen, marks)
@@ -362,18 +412,25 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
         panel.draw(screen, flow, cell, False, ticks / tuning.TICK_HZ, vigour,
                    lineage)
         margin.budget(screen, marks)
-        worst = doctor.bottlenecks(flow, marks, look, 1)
-        if worst:
-            margin.annotate(screen, worst[0],
-                            _anchor_for(plate, worst[0].row), seed=92)
+        if upset is not None:
+            margin.diet_change(screen, upset,
+                               max(0.0, tuning.DIET_TURNOVER
+                                   - (ticks - at) * tuning.DT))
+        else:
+            worst = doctor.bottlenecks(flow, marks, look, 1)
+            if worst:
+                margin.annotate(screen, worst[0],
+                                _anchor_for(plate, worst[0].row), seed=92)
     pygame.image.save(screen, path)
     pygame.quit()
     print(f"wrote {path}")
     return 0
 
 
-def run_headless(profile: str, seed: int, ticks: int, trace: bool) -> int:
-    flow, marks, vigour = build(profile, seed)
+def run_headless(profile: str, seed: int, ticks: int, trace: bool,
+                 eat: str | None = None) -> int:
+    flow, marks, vigour = build(profile, seed,
+                                diet=foods.MENU[eat] if eat else None)
     cell = Cell(flow, 0)
     watch = ["glucose", "g3p", "pyruvate", "acetyl", "oxaloacetate",
              "atp", "nadh", "lactate", "biomass"]
@@ -423,15 +480,21 @@ def main(argv: list[str] | None = None) -> int:
                         help="with --shot: divide whenever the lineage can")
     parser.add_argument("--page", type=int, default=None,
                         help="with --shot: render a page of the reference instead")
+    parser.add_argument("--eat", default=None, choices=sorted(foods.MENU),
+                        help="the diet to start on")
+    parser.add_argument("--switch", default=None, choices=sorted(foods.MENU),
+                        help="with --shot: change to this diet halfway through")
     args = parser.parse_args(argv)
 
     if args.shot:
         return run_shot(args.profile, args.seed, args.ticks, args.shot,
-                        args.page, args.constitution, args.grow, args.cell)
+                        args.page, args.constitution, args.grow, args.cell,
+                        args.eat, args.switch)
     if args.headless:
-        return run_headless(args.profile, args.seed, args.ticks, args.trace)
+        return run_headless(args.profile, args.seed, args.ticks, args.trace,
+                            args.eat)
     return run_window(args.profile, args.seed, args.silent,
-                      args.constitution)
+                      args.constitution, args.eat)
 
 
 if __name__ == "__main__":

@@ -23,12 +23,54 @@ from ..data.metabolites import Class
 from . import ink, palette, type as typo
 
 
-#: Pools and vessels that only matter once a food source has been adopted.
+#: The parts of the plate that serve a fuel the lineage has not taken up.
 #: Drawn faintly from the first second so the player can see what exists before
-#: they can use it (spec 3.1).
-UNADOPTED_POOLS = {"palmitate", "glutamate", "ammonia"}
-UNADOPTED_VESSELS = {"beta_oxidation", "lipogenesis", "gdh"}
-UNADOPTED_STUBS = {"exchange_palmitate", "exchange_glutamate", "exchange_ammonia"}
+#: they can use it (spec 3.1), and inked up when they commit to it.
+#:
+#: Adoption is not a fifth verb -- there is no button. A pathway is adopted when
+#: the player has put an activating mark on one of the genes that opens it, out
+#: of the same budget of eight everything else comes from. That is the whole
+#: cost: taking up fat means four marks that are no longer holding glycolysis
+#: together.
+FUELS: dict[str, dict[str, object]] = {
+    "fat": {
+        "genes": ("cd36", "acad", "fas"),
+        "pools": ("palmitate",),
+        "vessels": ("beta_oxidation", "lipogenesis"),
+        "stubs": ("exchange_palmitate",),
+    },
+    "nitrogen": {
+        # taking nitrogen in and using it is the adoption; ammonia export is
+        # the consequence of it, not a way into it
+        "genes": ("aat", "gdh"),
+        "pools": ("glutamate", "ammonia"),
+        "vessels": ("gdh",),
+        "stubs": ("exchange_glutamate", "exchange_ammonia"),
+    },
+}
+
+UNADOPTED_POOLS = {p for f in FUELS.values() for p in f["pools"]}
+UNADOPTED_VESSELS = {v for f in FUELS.values() for v in f["vessels"]}
+UNADOPTED_STUBS = {v for f in FUELS.values() for v in f["stubs"]}
+
+
+def taken_up(marks) -> frozenset[str]:
+    """Everything on the plate the lineage has committed a mark to.
+
+    Read off the register rather than stored, so it is always the truth: lift
+    the marks and the pathway fades back out, which is honest -- a pathway you
+    are no longer paying for is one you are no longer running.
+    """
+    if marks is None:
+        return frozenset()
+    out: set[str] = set()
+    for fuel in FUELS.values():
+        held = any(marks.marks.get(g) is not None
+                   and marks.marks[g].kind.value == "activating"
+                   for g in fuel["genes"])
+        if held:
+            out |= set(fuel["pools"]) | set(fuel["vessels"]) | set(fuel["stubs"])
+    return frozenset(out)
 
 
 class Plate:
@@ -41,8 +83,28 @@ class Plate:
         self.seed = seed
         self.adopted = adopted
         self.constitution = constitution
-        self.inkings = 0                 # how many times the plate was drawn
+        self.inkings = 0
+        self._layers: dict[frozenset[str], pygame.Surface] = {}                 # how many times the plate was drawn
         self.surface = self._ink_plate()
+
+    def inked_up(self, adopted: frozenset[str]) -> pygame.Surface | None:
+        """The adopted pathways, re-stroked at full weight, as an overlay.
+
+        Not a re-inking of the plate. Adoption happens mid-run, whenever a mark
+        goes down, and re-inking the whole page would be a visible hitch every
+        time -- so the faded print stays underneath and the pathway is drawn
+        over the top of it, the way a plate gets gone over in a second pass.
+        Cached per set, and there are four possible sets.
+        """
+        if not adopted:
+            return None
+        hit = self._layers.get(adopted)
+        if hit is None:
+            hit = pygame.Surface(layout.WINDOW, pygame.SRCALPHA)
+            self._ink_adopted(hit, adopted)
+            self._layers[adopted] = hit
+            self.inkings += 1
+        return hit
 
     # -- what the flow layer needs to know ---------------------------------
     def vessel_path(self, row_id: str) -> list[ink.Point]:
@@ -149,6 +211,40 @@ class Plate:
         # that does not run between two pools -- it is a curl spending ATP on
         # nothing -- so without a word it reads as an inking mistake.
         typo.caps(page, "upkeep", (398, 206), 8, palette.INK_FAINT, 1.6)
+
+    def _ink_adopted(self, page: pygame.Surface, adopted: frozenset[str]) -> None:
+        """Only the newly-taken-up parts, at printed weight, and nothing else.
+
+        Re-stroking the whole plate over itself would work and would also
+        double the ink on every line that was already there. The overlay draws
+        exactly what changed.
+        """
+        for i, (row_id, points) in enumerate(layout.VESSELS.items()):
+            if row_id not in adopted:
+                continue
+            narrow = self.constricted(row_id)
+            weight = layout.WEIGHTS.get(row_id, 1.5) * (0.42 + 0.58 * narrow)
+            alpha = 0.60 + 0.40 * narrow
+            ink.ink_curve(page, points, weight, seed=1000 + i * 7,
+                          colour=palette.INK, alpha=alpha,
+                          broken=narrow < 0.92)
+            path = _vessel_path(row_id)
+            end, before = path[-1], path[-4 if len(path) > 4 else 0]
+            ink.arrowhead(page, end, (end[0] - before[0], end[1] - before[1]),
+                          5.0 + weight, seed=1100 + i * 7, colour=palette.INK,
+                          alpha=alpha, weight=weight * 0.6)
+            self._draw_cofactor(page, row_id, path, i, palette.INK, alpha)
+
+        for mid, (x, y, r) in layout.POOLS.items():
+            if mid not in adopted:
+                continue
+            shape = ink.blob((x, y), r, seed=ink.seed_of(mid, 3), wobble=0.11)
+            ink.ink_curve(page, shape, 1.1, seed=ink.seed_of(mid, 31),
+                          colour=palette.INK, closed=True, alpha=1.0)
+            label = self.net.metabolites[self.net.mi(mid)].label
+            dx, dy = layout.POOL_LABEL_OFFSET.get(mid, (0.0, 0.0))
+            typo.caps(page, label, (x + dx, y + r + 6 + dy), 9,
+                      palette.INK_FAINT, spacing=1.1, align="centre")
 
     def _draw_tributaries(self, page: pygame.Surface) -> None:
         """The gases joining the arrows they belong to.

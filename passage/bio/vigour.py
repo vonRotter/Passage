@@ -66,6 +66,14 @@ class Vigour:
         self.congested: list[str] = []
         self.eaten: dict[str, float] = {f: 0.0 for f in self.diet}
         self.last: list[Bite] = []
+        self.served = "standard"
+        self.changes = 0
+        #: The broth before any diet was written into it. Kept so that serving a
+        #: different diet is a recomputation rather than an accumulation -- an
+        #: earlier version added each diet on top of the last, and a lineage
+        #: that had been through three menus was being fed all three.
+        self._base = (self.flow.feed.copy(), self.flow.target_medium.copy(),
+                      self.flow.perfused.copy())
         self.apply_diet()
 
     # -- the medium the diet makes -------------------------------------------
@@ -97,6 +105,37 @@ class Vigour:
                 self.flow.feed[i] += amount * taken
                 self.flow.target_medium[i] += amount * taken * tuning.MEDIUM_RICHNESS
                 self.flow.perfused[i] = 1.0
+
+    def serve(self, diet: dict[str, float], name: str = ""):
+        """Change what the lineage eats, from now on.
+
+        The medium is not swapped. Perfusion is rate-limited in both directions,
+        so writing a new target starts a turnover the cell lives through: the old
+        food drains at the rate the broth can carry it off and the new food
+        arrives at the rate it can be supplied. For a diet that drops a staple
+        that is twenty or thirty seconds of a medium which is neither one thing
+        nor the other, and the cell has to eat it.
+
+        Returns what this change did to the configuration the player is holding,
+        for the margin to say out loud.
+        """
+        from . import kitchen
+
+        before = kitchen.gates(self.diet, getattr(self.flow, "constitution", None))
+        was = self.served
+        self.flow.feed[:], self.flow.target_medium[:], self.flow.perfused[:] = (
+            self._base[0].copy(), self._base[1].copy(), self._base[2].copy())
+        self.diet = dict(diet)
+        self.served = name or "a diet of your own"
+        self.changes += 1
+        for food in self.diet:
+            self.eaten.setdefault(food, 0.0)
+        self.apply_diet()
+        after = kitchen.gates(self.diet, getattr(self.flow, "constitution", None))
+        return kitchen.upset(was, self.served, before, after, self.marks)
+
+    #: Set by the run so that a diet change can name the marks it just stranded.
+    marks = None
 
     def _absorbs(self, food_id: str) -> float:
         c = getattr(self.flow, "constitution", None)
