@@ -39,6 +39,7 @@ class Ledger:
     buffer_net: np.ndarray      # (M,) net drawn from the buffered pools
     spilled: np.ndarray         # (M,) over-cap material, lost as waste
     structure: np.ndarray       # (M,) biomass committed to being a cell
+    written: np.ndarray         # (M,) biomass spent writing the genome
     initial_atoms: np.ndarray   # (A,) atoms present when the run began
 
 
@@ -113,6 +114,7 @@ class Flow:
             buffer_net=np.zeros(n.n_metabolites),
             spilled=np.zeros(n.n_metabolites),
             structure=np.zeros(n.n_metabolites),
+            written=np.zeros(n.n_metabolites),
             initial_atoms=self._atoms(self.pools.sum(axis=0) + self.medium),
         )
 
@@ -298,17 +300,24 @@ class Flow:
                 "rate_scale", "target", "expression", "enzyme", "relax_scale",
                 "rate", "x_rate", "spill_rate", "saturation", "inhibition")
 
-    def commit(self, cell: int, mid: str, amount: float) -> float:
+    def commit(self, cell: int, mid: str, amount: float, book: str = "structure"
+               ) -> float:
         """Spend a pool on becoming a cell rather than on chemistry.
 
         The atoms are not destroyed -- they become structure, which this model
         does not carry as a pool. Booking them keeps the conservation sum
         closing, and dividing broke it until this existed.
+
+        ``book`` chooses which line. Structure is still the lineage: it is what
+        the cells are made of, and the target counts it. What is *written* --
+        biomass spent fixing a mark into the genome -- is gone from the target,
+        and that is the whole cost of the verb. Both are conserved; only one is
+        still yours.
         """
         i = self.net.mi(mid)
         taken = float(min(max(amount, 0.0), self.pools[cell, i]))
         self.pools[cell, i] -= taken
-        self.ledger.structure[i] += taken
+        getattr(self.ledger, book)[i] += taken
         return taken
 
     def divide(self, parent: int, share: float = 0.5) -> int:
@@ -409,7 +418,7 @@ class Flow:
         """Atoms currently held, minus atoms that ever entered. Should be zero."""
         held = self._atoms(self.pools.sum(axis=0) + self.medium
                            + self.ledger.spilled + self.ledger.removed
-                           + self.ledger.structure)
+                           + self.ledger.structure + self.ledger.written)
         entered = (self.ledger.initial_atoms
                    + self._atoms(self.ledger.supplied)
                    + self._atoms(self.ledger.buffer_net))

@@ -82,6 +82,9 @@ class Lineage:
         self.junctions = Junctions(self.net)
         self.drifted: list[Drift] = []
         self.divisions = 0
+        #: What has been written into the genome, in the order it was written.
+        #: Every cell carries these and no cell can be rid of them.
+        self.fixed: dict[str, Kind] = {}
 
     # -- reading ------------------------------------------------------------
     def __len__(self) -> int:
@@ -182,6 +185,49 @@ class Lineage:
             if marks.place(gene, kind):
                 placed += 1
         return placed
+
+    # -- fixation (spec 3.6) -------------------------------------------------
+    def fix(self, index: int, gene: str) -> str:
+        """Write a mark into the lineage's genome. Returns "" on success.
+
+        A fixed mark is not this cell's any more, it is the lineage's. Every
+        living cell gets it and every cell born after inherits it already fixed,
+        including the ones it does not suit -- which is the decision. A feeder
+        and a burner do not want the same genes switched on, and fixing one of
+        them means the other is carrying it too, for the rest of the run.
+
+        There is no unfixing. That is the point of the verb: everything else the
+        player does to this page can be undone at a price, and this cannot be
+        undone at any price.
+        """
+        marks = self.members[index].marks
+        why = marks.fixable(gene)
+        if why:
+            return why
+        if self.biomass() < tuning.FIX_MINIMUM_BIOMASS + tuning.FIX_COST:
+            return (f"fixing costs {tuning.FIX_COST:.0f} of biomass and the "
+                    f"lineage has {self.biomass():.0f}")
+
+        kind = marks.marks[gene].kind
+        # charged against the largest cell, which is the one that can stand it
+        payer = max(self.living, key=lambda m: self.flow.pools[
+            m.index, self.net.mi("biomass")])
+        self.flow.commit(payer.index, "biomass", tuning.FIX_COST, "written")
+
+        for member in self.members:
+            existing = member.marks.marks.get(gene)
+            if existing is None:
+                # a cell that had drifted away from it, or specialised out of
+                # it, gets it back: this is the genome now, not a choice
+                member.marks.marks[gene] = Mark(
+                    gene=gene, kind=kind, generation=self.generation,
+                    inherited=0, fixed=True, age=tuning.FIX_AGE)
+            else:
+                existing.kind = kind
+                member.marks.fix(gene)      # so the run's own record says so
+            member.marks._apply()
+        self.fixed[gene] = kind
+        return ""
 
     def specialise(self, index: int, specialism: str) -> bool:
         """Push a cell wholesale into a specialism, for one flat charge.

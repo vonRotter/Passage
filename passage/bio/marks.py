@@ -150,6 +150,40 @@ class Marks:
         self._apply()
         return True
 
+    def fixable(self, gene: str) -> str:
+        """Why this mark cannot be fixed yet, or "" if it can be.
+
+        A sentence rather than a bool, because the register has to be able to
+        say why a click did nothing. A verb that silently declines is a verb the
+        player will stop trusting.
+        """
+        mark = self.marks.get(gene)
+        if mark is None:
+            return "there is no mark here to fix"
+        if mark.fixed:
+            return "this one is already fixed"
+        if mark.age < tuning.FIX_AGE:
+            left = tuning.FIX_AGE - mark.age
+            return (f"a mark has to be lived with before it can be fixed — "
+                    f"{left:.0f}s more")
+        return ""
+
+    def fix(self, gene: str) -> bool:
+        """Write a mark into the genome. There is no way back from this.
+
+        It leaves the budget, so fixing hands a mark back. What it takes in
+        exchange is the ability to change your mind: a fixed mark can never be
+        lifted, never drifts on inheritance, and differentiation does not clear
+        it. The biomass is charged by the lineage, which owns the cost, because
+        the genome is the lineage's and not this cell's.
+        """
+        if self.fixable(gene):
+            return False
+        self.marks[gene].fixed = True
+        self.history.append(f"g{self.generation}: fixed {gene}, permanently")
+        self._apply()
+        return True
+
     def toggle(self, gene: str, kind: Kind) -> bool:
         """What a click does: mark it, or take the same mark off again."""
         existing = self.marks.get(gene)

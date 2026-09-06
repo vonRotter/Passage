@@ -8,13 +8,16 @@ Everything you switch off stays off, in every cell that comes after.
 
 ---
 
-## State: M5 — the kitchen, and the invalidation cycle
+## State: M6 — finished
 
 The player marks genes on a printed register, and the plate says in plain words
 what is wrong, in what quantity, and whose fault it is. On top of that, a second
-axis the build spec did not have: **relish against damage**. And now the thing
-that makes the register a standing decision rather than a puzzle solved once —
-**you choose what to eat, and choosing again invalidates what you configured**.
+axis the build spec did not have: **relish against damage**. The register is a
+standing decision rather than a puzzle solved once — **you choose what to eat,
+and choosing again invalidates what you configured** — and the run now ends,
+with an account of itself.
+
+All seven milestones are built. What follows is what each one turned out to be.
 
 ```
 startgame.bat                              # Windows: double-click
@@ -22,15 +25,17 @@ python -m passage                          # the plate, 1280x720
 python -m passage --shot page.png --grow   # one frame to a PNG, no display needed
 python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --eat "low sugar"        # start on a diet other than the default
+python -m passage --shot end.png --reckoning --grow --ticks 18000
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 141 tests
+python -m pytest                           # 157 tests
 ```
 
 `space` pauses · `tab` opens the appendix (seven pages; `1`–`8` on the
 kitchen page changes the diet) · `d` divides the selected
 cell · `shift`+`1`–`5` pushes it into a specialism · `1`–`9` or a click on the
 tree selects one · left click activates a gene, right
-click silences it, the same button again lifts it · `g` advances a generation.
+click silences it, the same button again lifts it · **ctrl-click writes it into
+the genome, for good** · `g` advances a generation. A run is fifteen minutes.
 
 ### Inheritance
 
@@ -111,6 +116,93 @@ The pairing worth noticing is the feeder and the burner: one runs glycolysis
 hard and pours out lactate, the other takes lactate in and oxidises it. One
 cell's waste is the next one's fuel, and it is the only way carbon moves between
 members of a lineage.
+
+### Fixation, the one thing that cannot be undone
+
+The fourth verb, and the only one with no way back. Everything else the player
+does to this page can be reversed at a price — a mark lifted, a cell
+differentiated, a diet changed. Ctrl-clicking a gene **writes the mark into the
+genome**, and there is no price at which that comes off again.
+
+What it gives: the mark leaves the budget. Eight becomes nine, in effect,
+because one of them is no longer a choice being held open. It never drifts on
+inheritance, differentiation does not clear it, and it is drawn in the register
+at full weight inside a ruled surround rather than fading down the generations —
+a fixed mark is not second-hand, because it is not being passed down. It is what
+the lineage *is*.
+
+What it takes, in three parts:
+
+- **A mark has to be lived with first.** Ninety seconds held, which is the whole
+  idea of a heritable change and also stops a player fixing eight things in the
+  opening minute.
+- **It costs 45 of biomass**, out of the same pool the target is counted in.
+  That is a new ledger line — `written` — sitting beside `structure`: both are
+  conserved, both keep the atom sum closing, and only one of them is still
+  yours. Biomass spent on being two cells is still the lineage. Biomass spent
+  writing the genome is gone from the score.
+- **It reaches every cell.** A fixed mark is the lineage's, not this cell's.
+  Every living cell gets it, every cell born after inherits it already fixed,
+  and a cell that had drifted away from it or specialised out of it gets it
+  back. This is the genome now, not a choice.
+
+That last one is the decision. A feeder and a burner do not want the same genes
+switched on, and fixing one of them means the other is carrying it for the rest
+of the run. Fixation is how a lineage stops being able to change its mind, and
+the run is fifteen minutes long, so it is also the only thing a run leaves
+behind.
+
+### The reckoning
+
+The run ends because the clock does. That is the honest end for a game where the
+whole cost structure is *later*: damage never heals, a mark held for twenty
+generations is the expensive one to lift, and a lineage that burns bright is
+spending something it cannot get back. None of it means anything without a bell.
+
+The last page is not a scoreboard. The number is on it, but beside the four
+things that made it and beside the one act the run could not take back:
+
+- **the account** — built, eaten, yield, vigour, relish, each with a ruled bar
+  whose length is what that factor cost. A number in a column is easy to skim
+  past; a bar longer than its neighbours is not.
+- **one sentence naming what decided the run.** *"Pleasure decided this run. The
+  lineage was careful and the score paid for it: relish at 42% is a lineage that
+  never got much out of eating, and the score counts that as a cost."* A page
+  that says `0.180` and nothing else teaches nobody anything.
+- **what was written into the genome**, boxed in the same hand as the register.
+- **what you did** — the marks placed, lifted and fixed, in order, from the
+  history every cell has been keeping all along for exactly this. The rest of
+  the page is what happened; this is what the player did, which is not the same
+  thing and is the half they can learn from.
+- **what it ate**, totalled by food over the whole run, with a red rule against
+  anything that was charging for itself. The score charges for everything
+  absorbed, so a player looking at a bad yield needs to see what they were
+  absorbing.
+- **the lineage**, at rest. The one part of a run that is a picture of a
+  decision rather than a number.
+
+There is no failure state beyond a lineage that died out. Finishing poorly is
+finishing, and the spec's own reasoning holds: a run collapsing for a reason the
+player could not have fixed in time is a worse outcome than one that merely
+scores badly.
+
+The two ends of the diet axis, side by side, from the same profile and the same
+number of divisions:
+
+| | rich | low sugar |
+|---|---|---|
+| built | 971 | 711 |
+| eaten | 4647 | 3030 |
+| vigour at the bell | 33% | 100% |
+| relish | 74% | 42% |
+| **score** | **0.061** | **0.180** |
+
+The rich diet built more of everything and scored a third as well, because
+two-thirds of what it made was written off for the state it made it in. The
+careful diet was not right either — it gave up 10% of its score to never having
+enjoyed anything. Neither column is the answer; the answer is somewhere between
+them and depends on the constitution you were dealt, which is the whole of the
+design.
 
 ### The kitchen, and what changing your mind costs
 
@@ -632,18 +724,25 @@ literature question. Five decisions were taken; each is reversible.
   If you want dosing to be a real action — supplementing the medium mid-run —
   say so and I will put the case for and against properly, but I am not going
   to add it quietly.
-- **The diet is fixed for now.** Choosing what to eat is §3.8's adoption
-  mechanic and lands at M5. The three diets exist as data and as a test; the
-  player cannot yet switch between them in a run.
-- **Every food enters through one of four existing gates.** The distinct entry
-  points the design turns on — fibre fermented to short-chain fatty acids
-  arriving at acetyl-CoA, fructose slipping past the regulation point, ethanol
-  with its toxic intermediate — are what M5 is for. What is here already
-  carries the relish-against-damage axis, which was the part that needed
-  proving.
-- **Cells cannot die yet.** A worn-out lineage pays triple upkeep and builds at
-  40%, but nothing kills it. Spec open question 2 recommends death, slow and
-  heavily telegraphed, and defers the decision to M4.
+- **Every food still enters through one of four existing gates.** Sugar, fat,
+  amino acids, lactate. The distinct entry points the design imagined — fibre
+  fermented to short-chain fatty acids arriving at acetyl-CoA, fructose
+  slipping past the regulation point, ethanol with its toxic intermediate —
+  would each be a new reaction and a new place on the plate, and none of them
+  is here. What is built instead is the axis they were for: relish against
+  damage, and a body that handles one food worse than another. Adding fructose
+  as its own gate is a day's work on top of what exists and would sharpen the
+  sugar constitution considerably; it is the first thing I would do next.
+- **Nitrogen uptake is a forced move.** Written up in full under the kitchen
+  above. One of the eight marks is not really a choice, and that is a fault
+  rather than a feature, left standing because it is discoverable rather than
+  hidden.
+- **A run is fifteen minutes and there is nothing after it.** The reckoning is
+  an end, not a meta-game: no unlocks, no carry-over, nothing that turns one
+  run into a campaign. That is deliberate for now — a lineage that leaves
+  nothing behind except what it fixed is the whole theme — but if runs should
+  chain, the genome is the obvious thing to carry, and `Lineage.fixed` is
+  already the record of it.
 
 ### Open from M0, still standing
 
@@ -685,6 +784,7 @@ passage/
     transport.py    junctions: gradients, shared throughput, and distance
     vigour.py       relish, damage, and what the lineage carries
     kitchen.py      choosing a diet, and what changing it strands
+    ending.py       what a run came to, and which factor decided it
   render/
     ink.py          the six primitives: paper, line, curve, wash, leader, hand
     palette.py      the six class washes and the one alarm colour
@@ -695,6 +795,7 @@ passage/
     panel.py        the right margin
     margin.py       the player's own hand: marks, notes, the diet report
     reference.py    the appendix, seven pages, inked one page at a time
+    final.py        the reckoning, inked once when the bell goes
   debug/
     overlay.py      F-keys: rates, mass balance, timing
     testpage.py     the A0 materials page
@@ -708,7 +809,10 @@ spec puts the target and rates on the right but named no module for them.
 
     data/foods.py, data/constitutions.py — the diet and the genome dealt
 
-Still to come: fixation and the full run (M6).
+All seven milestones are built. What is *not* built, and was never meant to be:
+dosing the medium (a fifth verb the spec forbids in as many words), a campaign
+around the run, and anything that lets a player skip the seconds a decision
+costs them.
 
 ---
 

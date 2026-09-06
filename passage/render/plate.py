@@ -307,7 +307,8 @@ class Plate:
         x, y, w, h = layout.REGISTER
         typo.caps(page, "gene register", (x, y + 6), 10, palette.INK, 2.0)
         typo.draw(page, "left click activates · right click silences · "
-                       "again to lift, which costs more",
+                       "again to lift, which costs more · "
+                       "ctrl-click writes it into the genome, for good",
                   (x + 132, y + 6), 10, palette.PENCIL, 0.2)
         markable = [g for g in self.net.genes if g.markable]
         rows = (len(markable) + layout.REGISTER_COLUMNS - 1) // layout.REGISTER_COLUMNS

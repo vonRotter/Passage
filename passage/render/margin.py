@@ -105,6 +105,18 @@ def diet_change(surface: pygame.Surface, report, left: float) -> None:
                   (MARGIN_X, NOTE_BOTTOM - 2), 10, palette.INK_FAINT, 0.2)
 
 
+def refusal(surface: pygame.Surface, why: str) -> None:
+    """Why the last click did nothing, said where the player is looking.
+
+    Written across the bottom of the register rather than in the margin: a verb
+    that declines has to answer where the hand was, not in a column the player
+    has no reason to be reading at that moment.
+    """
+    x = layout.REGISTER[0] + 14
+    y = layout.REGISTER[1] + layout.REGISTER[3] - 18
+    typo.draw(surface, why, (x, y), 11, palette.ALARM, 0.2)
+
+
 def budget(surface: pygame.Surface, marks: Marks) -> None:
     """What the player has spent, and what lifting a mark is still costing them."""
     x, right = MARGIN_X, layout.WINDOW[0] - 22
@@ -154,9 +166,30 @@ class RegisterHand:
             rect = self.rows.get(gene)
             if rect is None:
                 continue
-            fade = min(0.68, mark.inherited * 0.17)
+            # A fixed mark never fades. Inheritance is what makes a mark look
+            # second-hand, and a mark in the genome is not second-hand -- it is
+            # not being passed down, it is what the lineage is.
+            fade = 0.0 if mark.fixed else min(0.68, mark.inherited * 0.17)
             stamp = self._stamp(gene, mark.kind, fade)
             surface.blit(stamp, (int(rect[0] - 12), int(rect[1] + rect[3] / 2 - 17)))
+            if mark.fixed:
+                surface.blit(self._surround(gene, rect),
+                             (int(rect[0] - 16), int(rect[1] - 4)))
+
+    def _surround(self, gene: str, rect) -> pygame.Surface:
+        """The ruled box round an entry written in for good."""
+        key = ("box", gene)
+        layer = self._stamps.get(key)
+        if layer is None:
+            w, h = int(rect[2]) + 30, int(rect[3]) + 10
+            layer = pygame.Surface((w, h), pygame.SRCALPHA)
+            half_h = h / 2 - 3
+            ink.hand_mark(layer, "box", (w / 2, h / 2),
+                          seed=ink.seed_of(gene, 23), size=half_h,
+                          colour=palette.INK,
+                          aspect=(w / 2 - 3) / max(half_h, 1e-3))
+            self._stamps[key] = layer
+        return layer
 
     def draw_debt(self, surface: pygame.Surface, marks: Marks) -> None:
         """A gene still in debt for being un-marked keeps a struck-out ghost."""

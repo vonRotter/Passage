@@ -24,6 +24,27 @@ BASELINE_EXPRESSION = 0.15      # what an unmarked gene drifts to
 # baseline, running slowly, and choosing what to shut down is the whole game.
 MARK_BUDGET = 8
 
+# --- fixation (M6) ---------------------------------------------------------
+# Fixing a mark writes it into the genome: it leaves the budget, it can never
+# be lifted, it never drifts, differentiation does not clear it, and every cell
+# in the lineage carries it -- including the ones that would rather not.
+#
+# The two costs are what stop it being a free mark. A mark has to have been
+# *lived with* before it can be fixed, which is the whole idea of a heritable
+# change and also stops a player fixing eight things in the first ten seconds;
+# and it is paid for in biomass, out of the same pool the target is counted in,
+# so fixing early costs a larger share of a smaller lineage.
+FIX_AGE = 90.0               # simulated seconds a mark must be held first
+FIX_COST = 45.0              # biomass, booked to the ledger as structure
+FIX_MINIMUM_BIOMASS = 60.0   # below this the lineage cannot afford to fix at all
+
+# --- the run ---------------------------------------------------------------
+# A run ends because the clock does. Everything in this game that costs, costs
+# *later* -- damage never heals, an old mark is the expensive one to lift, a
+# lineage that burns bright is spending something it cannot get back -- and
+# none of that means anything without a bell.
+RUN_LENGTH = 900.0           # simulated seconds; the sim runs at real time
+
 # Removing a mark costs more than placing one and takes longer to bite. This is
 # the mechanical form of the inheritance thesis and it is not to be softened for
 # convenience: un-silencing a gene you silenced three generations ago has to be

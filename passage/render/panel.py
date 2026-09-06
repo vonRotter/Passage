@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from ..bio.cell import Cell
 from ..bio.flow import Flow
+from .. import tuning
 from ..data import layout
 from . import ink, palette, type as typo
 
@@ -92,8 +93,17 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
 
     if paused:
         typo.caps(surface, "paused", (right - 54, 566), 11, palette.INK, 2.4)
-    typo.draw(surface, "space pause · tab ref · d divide · shift 1-5 specialise · 1-9 cell",
-              (x, 704), 9, palette.PENCIL, 0.2)
+    typo.draw(surface, "space pause · tab ref · d divide · shift 1-5 specialise",
+              (x, 692), 9, palette.PENCIL, 0.2)
+    typo.draw(surface, "1-9 cell · g generation · ctrl-click a gene to fix it",
+              (x, 705), 9, palette.PENCIL, 0.2)
+    # the clock, because everything in this game costs later and none of that
+    # means anything without a bell
+    left = max(0.0, tuning.RUN_LENGTH - elapsed)
+    typo.draw(surface, f"{int(left) // 60}:{int(left) % 60:02d} left",
+              (right, 672), 11,
+              palette.ALARM if left < 60 else palette.INK_FAINT, 0.0,
+              align="right")
 
 
 def _carriers(surface: pygame.Surface, cell: Cell, x: float,

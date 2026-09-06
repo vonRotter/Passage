@@ -404,6 +404,35 @@ class Reference:
                   "needs never arrives.",
                   (MARGIN, 664), 10, palette.PENCIL, 0.2)
 
+        # The fourth verb, printed beside the third because they are the two
+        # that reach past one cell: differentiating changes what a cell is,
+        # fixing changes what the whole lineage is, and only one of them can be
+        # taken back. The genes page has no room and this is where it belongs.
+        from .. import tuning as tune
+        y = 556
+        ink.ink_line(surface, (MARGIN, y - 12),
+                     (layout.WINDOW[0] - MARGIN, y - 12), 0.5, 5400,
+                     palette.INK, 0.4)
+        ink.hand_mark(surface, "tick", (MARGIN + 22, y + 12),
+                      seed=5401, size=9.5)
+        ink.hand_mark(surface, "box", (MARGIN + 108, y + 12), seed=5402,
+                      size=13.0, aspect=8.0)
+        typo.draw(surface, "a mark", (MARGIN + 40, y + 5), 11,
+                  palette.PENCIL, 0.2)
+        for i, line in enumerate(_wrap(
+                f"Ctrl-click writes a mark into the genome, and there is no "
+                f"way back from it. It leaves the budget, it never drifts, "
+                f"differentiation does not clear it, and it can never be "
+                f"lifted at any price. It costs {tune.FIX_COST:.0f} of biomass "
+                f"and the mark has to have been held for {tune.FIX_AGE:.0f} "
+                f"seconds first — a heritable change is one that persisted. "
+                f"And it reaches every cell in the lineage, including the ones "
+                f"it does not suit, which is the decision it is for: a feeder "
+                f"and a burner do not want the same genes switched on.",
+                10, layout.WINDOW[0] - MARGIN * 2 - 220)):
+            typo.draw(surface, line, (MARGIN + 220, y + i * 14), 10,
+                      palette.PENCIL, 0.2)
+
 
 def _effects(con) -> str:
     """The trait in shorthand, so the page is a table and not a story."""

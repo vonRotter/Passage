@@ -124,9 +124,11 @@ def run_window(profile: str, seed: int, silent: bool = False,
     from .render import plate as plate_mod
     from .render.plate import Plate
     from .render import ink, interact, margin, panel, reference, roster
+    from .bio import ending
     from .bio.diagnose import Diagnostician
     from .bio.marks import Kind
     from .debug import overlay
+    from .render.final import Final
     from .sound import Sound
 
     audio = Sound(enabled=not silent)
@@ -157,6 +159,11 @@ def run_window(profile: str, seed: int, silent: bool = False,
     # diet. After that the ordinary bottleneck note has it back.
     upset = None
     upset_left = 0.0
+    # why a click did nothing. A verb that silently declines is a verb the
+    # player stops trusting.
+    refusal = ""
+    refusal_left = 0.0
+    ended = None
     paused = False
     accumulator = 0.0
     elapsed = 0.0
@@ -166,6 +173,12 @@ def run_window(profile: str, seed: int, silent: bool = False,
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif ended is not None:
+                # the bell has gone. Nothing here can be changed, which is the
+                # point of it, so nothing but leaving is listened to.
+                if (event.type == pygame.KEYDOWN
+                        and event.key in (pygame.K_ESCAPE, pygame.K_q)):
+                    running = False
             elif event.type == pygame.MOUSEMOTION:
                 hover = interact.at(event.pos, flow.net, plate.vessel_path)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.pos[0] < layout_left():
@@ -177,9 +190,18 @@ def run_window(profile: str, seed: int, silent: bool = False,
                 if target is None:
                     pinned = None
                 elif target.kind == "gene" and event.button in (1, 3):
-                    kind = Kind.ACTIVATING if event.button == 1 else Kind.SILENCING
-                    if lineage.marks_of(selected).toggle(target.id, kind):
-                        audio.scratch()
+                    if event.mod & pygame.KMOD_CTRL and event.button == 1:
+                        # the fourth verb, and the only one with no way back
+                        refused = lineage.fix(selected, target.id)
+                        if refused:
+                            refusal, refusal_left = refused, 6.0
+                        else:
+                            audio.tick()
+                    else:
+                        kind = (Kind.ACTIVATING if event.button == 1
+                                else Kind.SILENCING)
+                        if lineage.marks_of(selected).toggle(target.id, kind):
+                            audio.scratch()
                     pinned = target
                 else:
                     pinned = None if pinned == target else target
@@ -233,10 +255,24 @@ def run_window(profile: str, seed: int, silent: bool = False,
                 accumulator -= tuning.DT
                 elapsed += tuning.DT
                 upset_left = max(0.0, upset_left - tuning.DT)
+                refusal_left = max(0.0, refusal_left - tuning.DT)
+                if ended is None and (elapsed >= tuning.RUN_LENGTH
+                                      or not lineage.living):
+                    ended = Final(ending.Ending(lineage, vigour, elapsed, flow),
+                                  seed=seed + 77)
+                    paused = True
+                    audio.set_throughput(0.0)
 
         selected = min(selected, flow.n_cells - 1)
         cell = Cell(flow, selected)
         marks = lineage.marks_of(selected)
+
+        # The bell. Nothing here can be changed, which is the point of it.
+        if ended is not None:
+            screen.blit(ended.surface(), (0, 0))
+            audio.update(frame)
+            pygame.display.flip()
+            continue
 
         if reference_open:
             screen.blit(appendix.surface(), (0, 0))
@@ -285,6 +321,8 @@ def run_window(profile: str, seed: int, silent: bool = False,
         # A pinned note stays put; otherwise the worst bottleneck speaks up on
         # its own, because a player should not have to go looking for the thing
         # that is wrong.
+        if refusal and refusal_left > 0:
+            margin.refusal(screen, refusal)
         showing = pinned or hover
         if upset is not None and upset_left > 0 and showing is None:
             margin.diet_change(screen, upset, upset_left)
@@ -345,7 +383,8 @@ def tuning_window():
 def run_shot(profile: str, seed: int, ticks: int, path: str,
              page: int | None = None, constitution: str | None = None,
              grow: bool = False, watch: int = 0, eat: str | None = None,
-             switch: str | None = None) -> int:
+             switch: str | None = None, reckoning: bool = False,
+             fix: bool = False) -> int:
     """Render one frame of a settled run to a PNG and exit.
 
     The plate is the deliverable of this milestone, so being able to look at it
@@ -382,6 +421,20 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
             for member in list(lineage.living):
                 if lineage.divide(member.index) is not None:
                     break
+        if fix and tick == int(ticks * 0.8):
+            for gene in list(lineage.marks_of(0).marks)[:2]:
+                lineage.fix(0, gene)
+    if reckoning:
+        from .bio import ending as ending_mod
+        from .render.final import Final
+        page_out = Final(ending_mod.Ending(lineage, vigour,
+                                           ticks * tuning.DT, flow),
+                         seed=seed + 77).surface()
+        pygame.image.save(page_out, path)
+        pygame.quit()
+        print(f"wrote {path}")
+        return 0
+
     look = min(max(0, watch), flow.n_cells - 1)
     cell = Cell(flow, look)
     marks = lineage.marks_of(look)
@@ -484,12 +537,17 @@ def main(argv: list[str] | None = None) -> int:
                         help="the diet to start on")
     parser.add_argument("--switch", default=None, choices=sorted(foods.MENU),
                         help="with --shot: change to this diet halfway through")
+    parser.add_argument("--reckoning", action="store_true",
+                        help="with --shot: render the end-of-run page instead")
+    parser.add_argument("--fix", action="store_true",
+                        help="with --shot: fix two marks, to see them drawn")
     args = parser.parse_args(argv)
 
     if args.shot:
         return run_shot(args.profile, args.seed, args.ticks, args.shot,
                         args.page, args.constitution, args.grow, args.cell,
-                        args.eat, args.switch)
+                        args.eat, args.switch, args.reckoning,
+                        args.fix or args.reckoning)
     if args.headless:
         return run_headless(args.profile, args.seed, args.ticks, args.trace,
                             args.eat)

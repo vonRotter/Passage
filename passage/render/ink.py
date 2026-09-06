@@ -430,7 +430,7 @@ def leader(surface: pygame.Surface, from_point: Point, to_margin: Point,
 
 def hand_mark(surface: pygame.Surface, kind: str, position: Point, seed: int = 0,
               size: float = 9.0, fade: float = 0.0,
-              colour: RGB = palette.INK) -> None:
+              colour: RGB = palette.INK, aspect: float = 1.9) -> None:
     """The player's handwriting: wobblier and darker than the plate beneath it.
 
     ``fade`` is the inheritance ladder. A mark placed this generation is fresh
@@ -477,6 +477,23 @@ def hand_mark(surface: pygame.Surface, kind: str, position: Point, seed: int = 0
         _stroke(surface, [(x - size, y), (x, y + rng.uniform(-0.8, 0.8)),
                           (x + size, y)], shade, weight, seed * 17 + 7,
                 alpha, jitter=0.5, wetness=wet)
+
+    elif kind == "box":
+        # a ruled surround, drawn round an entry that has been written in for
+        # good. Four separate strokes, because nobody draws a box in one.
+        w, h = size * aspect, size
+        corner = [(x - w, y - h), (x + w, y - h), (x + w, y + h),
+                  (x - w, y + h), (x - w, y - h)]
+        for i in range(4):
+            over = rng.uniform(0.0, 2.4)
+            a, b = corner[i], corner[i + 1]
+            dx, dy = b[0] - a[0], b[1] - a[1]
+            n = math.hypot(dx, dy) or 1.0
+            _stroke(surface, [(a[0] - dx / n * over * 0.4,
+                               a[1] - dy / n * over * 0.4),
+                              (b[0] + dx / n * over, b[1] + dy / n * over)],
+                    shade, weight * 0.62, seed * 17 + 11 + i, alpha * 0.85,
+                    jitter=0.7, wetness=wet)
 
     else:
         raise ValueError(f"unknown hand mark: {kind!r}")
