@@ -60,6 +60,8 @@ class Vigour:
         self.diet = dict(diet if diet is not None else food_data.STANDARD)
         self.relish = 0.0
         self.damage = 0.0
+        self.food_damage = 0.0          # what the diet cost
+        self.jam_damage = 0.0           # what the configuration cost
         self.offered = 0.0
         self.spilling = 0.0
         self.congestion = 0.0
@@ -231,13 +233,20 @@ class Vigour:
         self.congested = [n.metabolites[i].id
                           for i in np.flatnonzero(over.max(axis=0) > 1e-6)]
 
-        harm_rate += (tuning.SPILL_DAMAGE * spilling
-                      + tuning.CONGESTION_DAMAGE * congestion)
+        jam_rate = (tuning.SPILL_DAMAGE * spilling
+                    + tuning.CONGESTION_DAMAGE * congestion)
 
         self.offered += food_data.supply(self.diet) * dt
         want = pleasure / (pleasure + tuning.RELISH_HALF)
         self.relish += (want - self.relish) * (1.0 - math.exp(-dt / tuning.RELISH_TAU))
-        self.damage += harm_rate * dt
+        # Kept apart because they call for opposite corrections. Damage from
+        # food is a diet the lineage cannot afford; damage from a jam is a
+        # configuration that cannot clear what it is being given, and eating
+        # *less* would be the wrong answer to it. A single total told the
+        # player they were eating badly when they were marking badly.
+        self.food_damage += harm_rate * dt
+        self.jam_damage += jam_rate * dt
+        self.damage += (harm_rate + jam_rate) * dt
         self.apply()
 
     def _exchange_index(self, mid: str) -> int | None:

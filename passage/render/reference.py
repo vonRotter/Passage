@@ -253,10 +253,12 @@ class Reference:
         head = TOP + 56
         for label, x, align in (("diet", 30, "left"),
                                 ("what it serves", 230, "left"),
-                                ("sugar", 700, "right"), ("fat", 776, "right"),
-                                ("amino", 858, "right"),
-                                ("relish", 946, "right"),
-                                ("harm", 1022, "right")):
+                                ("sugar", 700, "right"),
+                                ("fructose", 780, "right"),
+                                ("fat", 852, "right"),
+                                ("amino", 922, "right"),
+                                ("relish", 1000, "right"),
+                                ("harm", 1074, "right")):
             typo.caps(surface, label, (MARGIN + x, head), 8,
                       palette.INK_FAINT, 1.2, align=align)
         ink.ink_line(surface, (MARGIN, head + 14),
@@ -272,32 +274,36 @@ class Reference:
             # never what distinguishes it from another
             ranked = sorted(diet.items(), key=lambda kv: -kv[1])
             served = " · ".join(f"{food_data.BY_ID[f].label} {p:.2g}"
-                                for f, p in ranked[:3])
-            if len(ranked) > 3:
-                served += f" · and {len(ranked) - 3} more"
+                                for f, p in ranked[:2])
+            if len(ranked) > 2:
+                served += f" · and {len(ranked) - 2} more"
             typo.draw(surface, served, (MARGIN + 230, y), 10, palette.PENCIL, 0.2)
             at = kitchen_data.gates(diet, self.constitution)
-            for mid, x in (("glucose", 700), ("palmitate", 776),
-                           ("glutamate", 858)):
+            for mid, x in (("glucose", 700), ("fructose", 780),
+                           ("palmitate", 852), ("glutamate", 922)):
                 typo.draw(surface, f"{at.get(mid, 0.0):.1f}", (MARGIN + x, y),
                           10, palette.PENCIL, 0.0, align="right")
             relish = sum(food_data.BY_ID[f].relish * p for f, p in diet.items())
             harm = sum(food_data.BY_ID[f].harm * p for f, p in diet.items())
-            typo.draw(surface, f"{relish:.2f}", (MARGIN + 946, y), 10,
+            typo.draw(surface, f"{relish:.2f}", (MARGIN + 1000, y), 10,
                       palette.PENCIL, 0.0, align="right")
             typo.draw(surface, f"{harm:.2f}",
-                      (MARGIN + 1022, y), 10,
+                      (MARGIN + 1074, y), 10,
                       palette.ALARM if harm > 1.4 else palette.PENCIL, 0.0,
                       align="right")
             y += 30
 
-        typo.draw(surface,
-                  "The relish and harm columns are per portion served, not per "
-                  "portion eaten. Transport is passive: what a cell actually "
-                  "takes in depends on what it can clear, so a diet that looks "
-                  "cheap on this page can still be expensive to the body "
-                  "holding it.",
-                  (MARGIN, 646), 10, palette.PENCIL, 0.2)
+        for i, line in enumerate(_wrap(
+                "Sugar and fructose are separate columns because they are "
+                "separate doors: fructose joins the pathway below PFK-1, so "
+                "the brake on sugar is not on it. Relish and harm are per "
+                "portion served, not per portion eaten — transport is "
+                "passive, and what a cell actually takes in depends on what it "
+                "can clear, so a diet that looks cheap here can still be "
+                "expensive to the body holding it.",
+                10, layout.WINDOW[0] - MARGIN * 2)):
+            typo.draw(surface, line, (MARGIN, 640 + i * 14), 10,
+                      palette.PENCIL, 0.2)
 
     def kitchen_row(self, n: int) -> tuple[float, float]:
         """Where the tick against diet ``n`` goes, in window pixels."""

@@ -49,6 +49,12 @@ INTERNAL: list[Reaction] = [
        {"glucose": 1, "atp": 2}, {"g3p": 2, "adp": 2},
        "pfk", 9.0,
        note="hexokinase through aldolase; two ATP invested, no return yet"),
+    _r("fructolysis", "fructose → 2 G3P",
+       {"fructose": 1, "atp": 2}, {"g3p": 2, "adp": 2},
+       "aldob", 11.0,
+       note="fructokinase and aldolase B, lumped. Same atoms as the glucose "
+            "route and the same two ATP, but it joins the pathway below the "
+            "regulation point, so the brake on sugar is not on this"),
     _r("glycolysis_lower", "G3P → pyruvate",
        {"g3p": 1, "adp": 2, "phosphate": 1, "nad": 1},
        {"pyruvate": 1, "atp": 2, "nadh": 1, "water": 1},
@@ -149,6 +155,8 @@ EXCHANGE: list[Reaction] = [
     # no separate "export" row, because a carrier that could pump both ways at
     # once would just spin a futile cycle.
     _r("exchange_glucose", "glucose", {"glucose": 1}, {"glucose": 1}, "glut", 10.0, exchange=True),
+    _r("exchange_fructose", "fructose", {"fructose": 1}, {"fructose": 1},
+       "glut5", 10.0, exchange=True),
     _r("exchange_o2", "oxygen", {"o2": 1}, {"o2": 1}, "resp_o2", 20.0, exchange=True),
     _r("exchange_palmitate", "palmitate", {"palmitate": 1}, {"palmitate": 1}, "cd36", 1.5, exchange=True),
     _r("exchange_glutamate", "glutamate", {"glutamate": 1}, {"glutamate": 1}, "aat", 2.5, exchange=True),

@@ -50,6 +50,12 @@ PROFILES: dict[str, list[tuple[str, str]]] = {
     # reoxidise, and the cell suffocates on its own reducing power.
     "fermenting": [("glut", "+"), ("pfk", "+"), ("gapdh", "+"), ("ldh", "+"),
                    ("mct", "+"), ("biosyn", "+"), ("cs", "-"), ("ogdh", "-")],
+    # The answer to the fructose trap, kept here because it is the one
+    # configuration in the game that is not obvious: the brake that works is
+    # not the one on the pathway, it is the one on the door.
+    "sugar_wise": [("gapdh", "+"), ("pdh", "+"), ("cs", "+"), ("ogdh", "+"),
+                   ("etc", "+"), ("biosyn", "+"), ("aat", "+"),
+                   ("glut5", "-")],
     "starved":   [("etc", "-")],
 }
 
@@ -334,10 +340,14 @@ def run_window(profile: str, seed: int, silent: bool = False,
                                                   lineage),
                                 showing.anchor, seed=91)
         else:
-            worst = doctor.bottlenecks(flow, marks, selected, 1, lineage)
-            if worst:
-                margin.annotate(screen, worst[0],
-                                _anchor_for(plate, worst[0].row), seed=92)
+            # a cell poisoning itself is a more urgent fact than a reaction at
+            # 60%, so the harm speaks first when there is any
+            hurt = doctor.choking(flow, marks, vigour, selected)
+            worst = hurt or next(iter(
+                doctor.bottlenecks(flow, marks, selected, 1, lineage)), None)
+            if worst is not None:
+                margin.annotate(screen, worst,
+                                _anchor_for(plate, worst.row), seed=92)
 
         debug.draw(screen, flow, cell, plate, clock.get_fps())
         pygame.display.flip()
@@ -470,10 +480,12 @@ def run_shot(profile: str, seed: int, ticks: int, path: str,
                                max(0.0, tuning.DIET_TURNOVER
                                    - (ticks - at) * tuning.DT))
         else:
-            worst = doctor.bottlenecks(flow, marks, look, 1)
-            if worst:
-                margin.annotate(screen, worst[0],
-                                _anchor_for(plate, worst[0].row), seed=92)
+            hurt = doctor.choking(flow, marks, vigour, look)
+            worst = hurt or next(iter(doctor.bottlenecks(flow, marks, look, 1)),
+                                 None)
+            if worst is not None:
+                margin.annotate(screen, worst,
+                                _anchor_for(plate, worst.row), seed=92)
     pygame.image.save(screen, path)
     pygame.quit()
     print(f"wrote {path}")

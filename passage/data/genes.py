@@ -25,6 +25,11 @@ class Gene:
 GENES: list[Gene] = [
     Gene("pfk", "PFK-1", note="commits glucose to glycolysis; the classic regulation point"),
     Gene("gapdh", "GAPDH/PGK/PK", note="the payoff half of glycolysis, lumped"),
+    Gene("aldob", "fructokinase / aldolase B",
+         note="cleaves fructose straight to triose, below PFK-1. It idles like "
+              "any other enzyme; what makes it dangerous is not that it is "
+              "fast but that it is *elsewhere* — silencing the regulation "
+              "point does nothing to it"),
     Gene("ldh", "LDH", note="fermentation; regenerates NAD+ without oxygen"),
     Gene("pdh", "PDH", note="the gate from glycolysis into the TCA cycle"),
     Gene("cs", "citrate synthase", note="acetyl + oxaloacetate, through to 2-oxoglutarate"),
@@ -39,9 +44,14 @@ GENES: list[Gene] = [
     Gene("pc", "pyruvate carboxylase", note="anaplerosis; refills oxaloacetate"),
     Gene("fbpase", "PEPCK / FBPase", baseline=0.05, note="the gluconeogenic enzymes as one group: carbon back out of the cycle and up the pathway"),
     Gene("glut", "glucose transporter", baseline=0.40, note="glucose uptake"),
+    Gene("glut5", "fructose transporter",
+         note="fructose uptake, and a narrower door than the glucose one: it "
+              "idles at 15% against the glucose transporter's 40%. It is also "
+              "the only place a lineage can shut the back door"),
     Gene("resp_o2", "oxygen diffusion", baseline=1.00, markable=False, note="passive"),
     Gene("cd36", "fatty acid transporter", note="palmitate uptake"),
-    Gene("aat", "amino acid transporter", note="glutamate uptake"),
+    Gene("aat", "amino acid transporter", baseline=0.40,
+         note="glutamate uptake"),
     Gene("mct", "monocarboxylate transporter", baseline=0.40, note="lactate in and out"),
     Gene("co2_vent", "CO2 venting", baseline=1.00, markable=False, note="passive"),
     Gene("amt", "ammonia export", baseline=0.30, note="nitrogen out; neglect it and ammonia builds"),

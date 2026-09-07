@@ -40,7 +40,10 @@ REGISTER = (212, 574, 748, 132)
 #: stocks are read in the right margin, with the other instruments.
 POOLS: dict[str, tuple[float, float, float]] = {
     # the glycolytic trunk, down the left, in the cytosol
-    "glucose":      (330, 152, 24),
+    "glucose":      (330, 152, 22),
+    # to the right of the trunk and joining below the brake, because that is
+    # exactly what fructose does and the drawing should be the argument
+    "fructose":     (450, 148, 21),
     "g3p":          (330, 248, 20),
     "pyruvate":     (330, 348, 22),
     "lactate":      (330, 440, 20),
@@ -81,9 +84,13 @@ CELL_ENVELOPE: tuple[Point, float, float, float] = ((592, 300), 326.0, 0.638, 3.
 #: Every reaction, as the vessel that carries it. Hand-drawn waypoints, run
 #: through a spline, with an arrowhead at the far end. Direction is information.
 VESSELS: dict[str, list[Point]] = {
-    "glycolysis_upper":  [(330, 174), (320, 199), (330, 226)],
+    "glycolysis_upper":  [(330, 176), (320, 201), (330, 226)],
     "glycolysis_lower":  [(330, 270), (341, 299), (330, 326)],
     "gluconeogenesis":   [(310, 326), (274, 292), (274, 204), (310, 170)],
+
+    # The shunt. It leaves fructose, passes *outside* the regulated step, and
+    # joins the trunk at G3P -- below PFK-1, which is the whole of the point.
+    "fructolysis":       [(434, 166), (398, 194), (366, 226), (352, 240)],
 
     "fermentation":      [(332, 372), (344, 400), (332, 418)],
 
@@ -118,7 +125,7 @@ VESSELS: dict[str, list[Point]] = {
 
     # the cost of being alive: spent in the cytosol, going nowhere, and drawn
     # as a closed curl because that is exactly what it is
-    "maintenance":       [(408, 222), (438, 240), (408, 258)],
+    "maintenance":       [(470, 226), (500, 244), (470, 262)],
 }
 
 #: What each reaction carries across itself on a curved arrow: what goes in,
@@ -132,6 +139,7 @@ VESSELS: dict[str, list[Point]] = {
 #: metabolism carry their arc, and the rest do not.
 COFACTORS: dict[str, tuple[str, str, bool]] = {
     "glycolysis_upper":  ("ATP", "ADP", True),
+    "fructolysis":       ("ATP", "ADP", True),
     "glycolysis_lower":  ("NAD+", "NADH", True),
     "fermentation":      ("NADH", "NAD+", False),
     "pdh":               ("NAD+", "NADH", True),
@@ -154,6 +162,7 @@ TRIBUTARIES: dict[str, list[Point]] = {
 #: line at one weight is most of what makes a diagram look machine-made.
 WEIGHTS: dict[str, float] = {
     "glycolysis_upper": 2.3, "glycolysis_lower": 2.3, "pdh": 2.1,
+    "fructolysis": 1.9,
     "tca_upper": 2.1, "tca_lower": 2.1, "oxphos": 2.8,
     "fermentation": 1.7, "biosynthesis": 1.7, "beta_oxidation": 1.5,
     "anaplerosis": 1.3, "cataplerosis": 1.1, "gluconeogenesis": 1.1,
@@ -165,7 +174,8 @@ WEIGHTS: dict[str, float] = {
 #: flow mark travelling along it, not a printed arrowhead. Each one starts on
 #: the pool and ends outside the envelope, so it visibly crosses the membrane.
 EXCHANGE_STUBS: dict[str, tuple[Point, Point]] = {
-    "exchange_glucose":   ((330, 128), (308, 68)),
+    "exchange_glucose":   ((330, 130), (308, 68)),
+    "exchange_fructose":  ((450, 127), (472, 68)),
     "exchange_lactate":   ((314, 454), (262, 488)),
     "exchange_o2":        ((891, 228), (940, 210)),
     "exchange_co2":       ((890, 378), (940, 392)),
@@ -177,7 +187,8 @@ EXCHANGE_STUBS: dict[str, tuple[Point, Point]] = {
 #: Where a leader line leaves a feature, when the margin has something to say
 #: about it. Annotation lives in the margin, never in a tooltip over the plate.
 LEADER_ANCHORS: dict[str, Point] = {
-    "glucose": (356, 140), "g3p": (352, 248), "pyruvate": (354, 348),
+    "glucose": (356, 140), "fructose": (472, 140),
+    "g3p": (352, 248), "pyruvate": (354, 348),
     "lactate": (352, 456), "biomass": (430, 484),
     "acetyl": (622, 268), "oxaloacetate": (692, 421), "akg": (806, 292),
     "palmitate": (546, 466), "glutamate": (778, 462),
@@ -198,7 +209,8 @@ def envelope_depth(x: float, y: float) -> float:
 #: Where a pool's printed label sits, when directly underneath would put it
 #: on top of a vessel. Hand-placed, like everything else here.
 POOL_LABEL_OFFSET: dict[str, Point] = {
-    "glucose": (-58, -18),
+    "glucose": (-54, -14),
+    "fructose": (52, -2),
     "g3p": (40, -14),
     "pyruvate": (48, -16),
     "lactate": (-2, 2),

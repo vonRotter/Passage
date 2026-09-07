@@ -180,7 +180,11 @@ class Flow:
         available = np.maximum(pools, 0.0)
         for _ in range(tuning.SOLVER_PASSES):
             demand = rate @ s_in * dt                              # (C, M)
-            with np.errstate(divide="ignore", invalid="ignore"):
+            # np.where evaluates the division for every entry before it
+            # selects, including the ones the condition throws away, so a
+            # denormal demand overflows on its way to being discarded. All
+            # three warnings are about values this line does not keep.
+            with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
                 headroom = np.where(demand > 1e-12, available / demand, np.inf)
             headroom = np.where(n.buffered[None, :], np.inf, headroom)
             factor = np.min(np.where(n.mask_in[None, :, :],

@@ -412,6 +412,112 @@ class Diagnostician:
                 f"more than placing did — the oldest is {label}, from "
                 f"generation {cheapest.generation}.")
 
+    # -- damage ---------------------------------------------------------------
+    def choking(self, flow: Flow, marks: Marks | None, vigour, cell: int = 0
+                ) -> Reason | None:
+        """What is poisoning this lineage, and where it is getting in.
+
+        The bottleneck diagnosis answers "why is this reaction slow", which is
+        the right question when a lineage is merely inefficient and the wrong
+        one when it is being harmed. A pool jammed at its cap does damage every
+        second it sits there, and the margin was reporting a flux problem three
+        steps downstream while saying nothing about the poisoning -- which is
+        how a player ends up silencing the regulation point and making it
+        worse.
+
+        Returns None when nothing is choking, so the ordinary bottleneck note
+        keeps the margin whenever there is no harm being done.
+        """
+        if vigour is None or not getattr(vigour, "congested", None):
+            return None
+        n = self.net
+        # against *this body's* cap, not the chart's: a constitution that holds
+        # less of something is more easily choked by it, and reading the shared
+        # number instead was hiding exactly the cells this is for
+        worst, worst_fill = None, 0.0
+        for mid in vigour.congested:
+            i = n.mi(mid)
+            cap = float(flow.cap[cell, i])
+            if cap <= 0.0:
+                continue
+            fill = float(flow.pools[cell, i]) / cap
+            if fill > worst_fill:
+                worst, worst_fill = mid, fill
+        if worst is None or worst_fill < tuning.CONGESTION_THRESHOLD:
+            return None
+
+        met = n.metabolites[n.mi(worst)]
+        held = float(flow.pools[cell, n.mi(worst)])
+        cap = float(flow.cap[cell, n.mi(worst)])
+        over = worst_fill - tuning.CONGESTION_THRESHOLD
+        return Reason(
+            row=self._row_holding(worst),
+            kind="choking",
+            headline=f"{met.label} is choking this cell",
+            detail=(f"The pool is at {worst_fill:.0%} of what it can hold "
+                    f"({_plain(held)} of {_plain(cap)}), "
+                    f"and everything above {tuning.CONGESTION_THRESHOLD:.0%} "
+                    f"is doing damage. This lineage has taken "
+                    f"{vigour.damage:.0f} of it, and damage does not heal."),
+            remedy=self._doors(flow, marks, worst, cell),
+            # deliberately above any flux reason. The margin already prefers
+            # this one outright, but the two orderings must not disagree: a
+            # list that sorted a cell's poisoning below a step running at 60%
+            # would be wrong wherever it was read.
+            severity=100.0 + over * 200.0,
+            share=worst_fill,
+            metabolite=worst,
+        )
+
+    def _row_holding(self, mid: str) -> str:
+        """A reaction to hang the leader line on, for a pool that is choking."""
+        for i in self.consumers.get(mid, []):
+            if not self.net.rows[i].reverse:
+                return self.net.rows[i].id
+        for i in self.producers.get(mid, []):
+            if not self.net.rows[i].reverse:
+                return self.net.rows[i].id
+        return ""
+
+    def _doors(self, flow: Flow, marks: Marks | None, mid: str, cell: int) -> str:
+        """Every way this substance is getting in, worst first.
+
+        Naming only the largest one is what makes the fructose trap a trap
+        rather than a puzzle: a player told "sugar is arriving" shuts the sugar
+        door, and the other door is still open. So every route carrying more
+        than a trickle is named, and a route the player has *not* marked is
+        named as such.
+        """
+        n = self.net
+        ways: list[tuple[float, str]] = []
+        for k in range(n.n_exchange):
+            if n.metabolites[n.x_metabolite[k]].id != mid:
+                continue
+            rate = float(flow.x_rate[cell, k])
+            if rate > 0.02:
+                gene = n.genes[n.x_gene[k]]
+                ways.append((rate, f"{gene.label} ({rate:.2f}/s)"))
+        for i in self.producers.get(mid, []):
+            if n.rows[i].reverse:
+                continue
+            rate = float(flow.rate[cell, i])
+            if rate > 0.02:
+                gene = n.genes[n.row_gene[i]]
+                ways.append((rate, f"{n.rows[i].label}, on {gene.label} "
+                                   f"({rate:.2f}/s)"))
+        ways.sort(reverse=True)
+
+        clears = self._best_drain(flow, marks, mid, cell, exclude=-1)
+        if not ways:
+            return (f"Nothing is filling it faster than it is being used, so "
+                    f"this will clear on its own. {clears}")
+        if len(ways) == 1:
+            return (f"It is arriving by {ways[0][1]}, faster than anything "
+                    f"here can use it. Silence that, or clear it: {clears}")
+        listed = ", and by ".join(way for _, way in ways[:3])
+        return (f"It is arriving by {listed}. Shutting one door leaves the "
+                f"others open. {clears}")
+
     # -- exchange -------------------------------------------------------------
     def _exchange(self, flow: Flow, row_id: str, k: int, cell: int) -> Reason:
         n = self.net

@@ -61,6 +61,13 @@ def test_the_hum_tracks_throughput():
     pathway hard and has switched the rest of the plate off -- sits *below* a
     respiring cell even though it eats far more glucose. That is the honest
     reading of "how much is happening", and it is what a player should hear.
+
+    What is asserted is that the mapping never goes the wrong way and that a
+    real difference is audible. An earlier version asserted that these two
+    particular profiles land on *different* steps, which is a claim about the
+    resolution of a 24-step quantiser rather than about the design: once they
+    settled two per cent apart they shared a step, and the test failed while
+    nothing it was written to protect had changed.
     """
     def settled(profile):
         flow, _, _ = build(profile, seed=0)
@@ -68,17 +75,23 @@ def test_the_hum_tracks_throughput():
             flow.step()
         return flow.throughput()
 
+    def pitch(value):
+        share = min(1.0, max(0.0, value / sound.REFERENCE_THROUGHPUT)) ** 0.6
+        return sound.Sound._pitches()[
+            int(round(share * (sound.HUM_STEPS - 1)))]
+
     working, narrow, dead = (settled("growing"), settled("fermenting"),
                              settled("starved"))
     assert working > narrow > dead
-    silent = sound.Sound(enabled=False)
-    pitches = []
-    for value in (dead, narrow, working):
-        silent.ok = True                       # exercise the mapping, not the mixer
-        share = min(1.0, max(0.0, value / sound.REFERENCE_THROUGHPUT)) ** 0.6
-        pitches.append(sound.Sound._pitches()[
-            int(round(share * (sound.HUM_STEPS - 1)))])
-    assert pitches[0] < pitches[1] < pitches[2]
+
+    # more traffic never sounds lower
+    assert pitch(working) >= pitch(narrow) >= pitch(dead)
+    # and the difference a player is meant to hear is heard
+    assert pitch(working) > pitch(dead)
+    steps = [pitch(v) for v in np.linspace(0.0, sound.REFERENCE_THROUGHPUT, 40)]
+    assert all(b >= a for a, b in zip(steps, steps[1:])), \
+        "the hum is not monotonic in throughput"
+    assert len(set(steps)) > 8, "the whole range collapses to a handful of tones"
 
 
 def test_upkeep_is_left_out_of_throughput():

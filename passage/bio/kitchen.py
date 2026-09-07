@@ -41,6 +41,8 @@ SERVES: dict[str, str] = {
     "glut": "glucose",
     "pfk": "glucose",
     "gapdh": "glucose",
+    "glut5": "fructose",
+    "aldob": "fructose",
     "cd36": "palmitate",
     "acad": "palmitate",
     "aat": "glutamate",
@@ -51,6 +53,7 @@ SERVES: dict[str, str] = {
 #: What each gate is called when the margin has to talk about it in words.
 GATE_WORDS: dict[str, str] = {
     "glucose": "sugar",
+    "fructose": "fructose",
     "palmitate": "fat",
     "glutamate": "amino acids",
     "lactate": "lactate",
@@ -121,7 +124,7 @@ def upset(was: str, now: str, before: dict[str, float], after: dict[str, float],
     report = Upset(was=was, now=now)
     ranked: list[tuple[float, str, list[str]]] = []
 
-    for gate in ("glucose", "palmitate", "glutamate", "lactate"):
+    for gate in ("glucose", "fructose", "palmitate", "glutamate", "lactate"):
         old, new = before.get(gate, 0.0), after.get(gate, 0.0)
         if max(old, new) < NEGLIGIBLE:
             continue

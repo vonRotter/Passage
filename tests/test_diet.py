@@ -22,9 +22,14 @@ from passage.__main__ import build
 from passage.bio.vigour import Vigour
 from passage.data import foods
 
-#: Twenty-five simulated minutes. Long enough for damage to have arrived and
-#: for the ordering to have settled; short enough that the suite stays usable.
-RUN = 30_000
+#: One full run, exactly: ``tuning.RUN_LENGTH`` seconds at the simulation rate.
+#:
+#: It was twenty-five minutes, which is two-thirds longer than a game lasts.
+#: That mattered once the diets stopped being separable on output alone: a rich
+#: lineage's vigour keeps falling after the bell, so past about fifteen minutes
+#: it falls behind on production too, and the suite was asserting things about
+#: a stretch of run no player will ever see.
+RUN = int(tuning.RUN_LENGTH * tuning.TICK_HZ)
 
 _CACHE: dict[tuple, tuple] = {}
 
@@ -88,8 +93,11 @@ def test_damage_is_superlinear_so_a_little_is_nearly_free():
     """One portion of something rich should cost almost nothing, and four
     portions a great deal more than four times as much."""
     def damage_from(portions):
+        # food damage, not the total: a cell that cannot clear what it is given
+        # also takes damage, and that is a configuration fault rather than a
+        # dietary one. Reading the sum made this test a test of two things.
         vigour, _, _ = run({"wholegrain": 2.0, "sweets": portions}, ticks=9_000)
-        return vigour.damage
+        return vigour.food_damage
 
     little, lots = damage_from(0.35), damage_from(1.4)
     assert little < 1.0, f"a small indulgence should be nearly free, got {little}"
@@ -100,7 +108,7 @@ def test_a_food_below_its_forgiven_intake_does_no_harm_at_all():
     sweets = foods.BY_ID["sweets"]
     assert sweets.forgiven > 0
     vigour, _, _ = run({"wholegrain": 3.0, "sweets": 0.1}, ticks=9_000)
-    assert vigour.damage < 0.05
+    assert vigour.food_damage < 0.05
 
 
 def test_damage_never_heals():

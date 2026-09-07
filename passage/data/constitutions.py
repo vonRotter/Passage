@@ -78,11 +78,14 @@ CONSTITUTIONS: list[Constitution] = [
         # is exactly the trouble. What is missing is the capacity to *use* it,
         # so it arrives, sits, fills the cell, and overflows.
         capacity={"glycolysis_upper": 0.6},
-        holds={"glucose": 0.8},
         handles={"sweets": 1.8},
+        holds={"glucose": 0.8, "fructose": 0.75},
         counsel="Sugar that cannot be burnt is sugar that sits in the cell "
-                "doing damage. Take the carbon in as fat and as amino acids "
-                "instead, and take what sugar you do eat slowly.",
+                "doing damage. The obvious move is the wrong one: silencing "
+                "PFK-1 shuts the front door and half of what sweet food "
+                "brings is fructose, which joins below it and does not "
+                "care. Shut the fructose transporter instead and leave "
+                "glycolysis able to clear what does get in.",
     ),
 
     Constitution(

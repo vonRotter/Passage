@@ -23,6 +23,9 @@ import pygame
 WATCH = [
     ("exchange_glucose", "glucose in"),
     ("glycolysis_upper", "glycolysis"),
+    # printed on its own line beside glycolysis, because the whole point of it
+    # is that it keeps running when glycolysis does not
+    ("fructolysis", "fructose in"),
     ("pdh", "into the cycle"),
     ("oxphos", "respiration"),
     ("fermentation", "fermentation"),
@@ -61,10 +64,10 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
 
     _carriers(surface, cell, x, right)
 
-    typo.caps(surface, "rates", (x, 232), 9, palette.INK_FAINT, 1.6)
-    ink.ink_line(surface, (x, 244), (right, 244), 0.5, 71, palette.INK, 0.4)
+    typo.caps(surface, "rates", (x, 228), 9, palette.INK_FAINT, 1.6)
+    ink.ink_line(surface, (x, 240), (right, 240), 0.5, 71, palette.INK, 0.4)
     for i, (row_id, label) in enumerate(WATCH):
-        y = 254 + i * 18
+        y = 250 + i * 17
         typo.draw(surface, label, (x, y), 11, palette.INK, 0.2)
         try:
             rate = flow.rate_of(row_id, cell.index)
@@ -74,8 +77,8 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
                   palette.INK if abs(rate) > 1e-3 else palette.INK_FAINT,
                   0.0, align="right")
 
-    typo.caps(surface, "ledger", (x, 376), 9, palette.INK_FAINT, 1.6)
-    ink.ink_line(surface, (x, 388), (right, 388), 0.5, 72, palette.INK, 0.4)
+    typo.caps(surface, "ledger", (x, 380), 9, palette.INK_FAINT, 1.6)
+    ink.ink_line(surface, (x, 392), (right, 392), 0.5, 72, palette.INK, 0.4)
     net = flow.net
     used = float(flow.ledger.supplied[net.mi("glucose")])
     waste = float(flow.ledger.spilled.sum())
@@ -87,7 +90,7 @@ def draw(surface: pygame.Surface, flow: Flow, cell: Cell, paused: bool,
                 ("vigour", f"{vigour.vigour:.0%}"),
                 ("score", f"{vigour.score(built):.3f}")]
     for i, (label, value) in enumerate(rows):
-        y = 398 + i * 17
+        y = 402 + i * 16
         typo.draw(surface, label, (x, y), 11, palette.INK, 0.2)
         typo.draw(surface, value, (right, y), 11, palette.INK, 0.0, align="right")
 

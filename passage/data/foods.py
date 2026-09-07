@@ -58,6 +58,11 @@ class Food:
 #: toxic intermediate -- are what M5 is for. What is here already carries the
 #: relish-against-damage axis, which is the part that needed proving.
 FOODS: list[Food] = [
+    # Fruit carries fructose in life, and it carried it here for one draft.
+    # It made every diet in the game do damage, because the shunt is not
+    # regulated and an unconfigured cell takes in what it cannot use — which
+    # broke the axis this whole table exists to hold up: plain food costs
+    # nothing. Fructose is the sweet-food door, and only that.
     Food("vegetables", "vegetables, fruit and berries",
          {"glucose": 1.1, "glutamate": 0.9}, relish=0.10, harm=0.0,
          trait="bulk without density; the staple of a plain diet",
@@ -93,12 +98,20 @@ FOODS: list[Food] = [
          trait="the most relish for the least food",
          note="the most relish for the least food, and the steepest bill. "
               "A wee bit of bacon is good for your morale and for nothing else"),
+    # forgiven rose from 0.2 to 0.45 when sweets gained a gate of their own.
+    # Harm is charged on intake above the threshold, and intake is attributed
+    # per gate: fructose comes from nothing else, so all of it is booked to
+    # sweets, where before their sugar was pooled with the wholegrain's and
+    # split proportionally. The same portions now measure about twice the
+    # intake, so the threshold has to move with the basis it is measured on.
     Food("sweets", "sweets, snacks and sweet baking",
-         {"glucose": 3.4}, relish=0.95, harm=0.95, forgiven=0.2,
-         trait="sugar, and nothing else at all",
-         note="sugar straight into glycolysis, and the fastest relish in the "
-              "game. The damage is in the square, so one portion is nearly "
-              "free and four are not"),
+         {"glucose": 1.7, "fructose": 1.7}, relish=0.95, harm=0.95,
+         forgiven=0.45,
+         trait="half of it fructose, which does not go past the brake",
+         note="the fastest relish in the game, and half of it arrives as "
+              "fructose — which joins glycolysis below PFK-1, so silencing "
+              "the regulation point does not slow it at all. The damage is in "
+              "the square: one portion is nearly free and four are not"),
     Food("butter", "butter and saturated fat",
          {"palmitate": 1.5}, relish=0.62, harm=0.85, forgiven=0.2,
          trait="fat alone, straight past glycolysis",

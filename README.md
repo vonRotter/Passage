@@ -27,7 +27,7 @@ python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --eat "low sugar"        # start on a diet other than the default
 python -m passage --shot end.png --reckoning --grow --ticks 18000
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 157 tests
+python -m pytest                           # 172 tests
 ```
 
 `space` pauses · `tab` opens the appendix (seven pages; `1`–`8` on the
@@ -116,6 +116,92 @@ The pairing worth noticing is the feeder and the burner: one runs glycolysis
 hard and pours out lactate, the other takes lactate in and oxidises it. One
 cell's waste is the next one's fuel, and it is the only way carbon moves between
 members of a lineage.
+
+### Fructose, and the trap it makes
+
+Every other food arrives through one of four doors — sugar, fat, amino acids,
+lactate — and the plate's regulation point, PFK-1, sits on the sugar door.
+Fructose is the exception, and it is the reason the door is worth thinking
+about at all: fructokinase and aldolase B cleave it straight to triose, *below*
+PFK-1, so the one brake a lineage has on sugar is not on it. That is textbook
+biochemistry rather than a game invention, and it is drawn as what it is — a
+shunt leaving the fructose pool, passing outside the regulated step, and joining
+the trunk at G3P.
+
+Half of what sweet food brings now arrives as fructose. Fruit carries some too,
+more slowly. And that produces the sharpest decision in the game. A lineage with
+**poor sugar handling**, eating sweet, four ways:
+
+| | sugar in | fructose in | glucose held | damage | vigour | score |
+|---|---|---|---|---|---|---|
+| do nothing | 0.45 | 0.55 | 61% | 217 | 53% | 0.156 |
+| silence PFK-1 | 0.24 | 0.51 | 100% | 407 | 37% | 0.057 |
+| silence PFK-1 and GLUT5 | 0.24 | — | 100% | 355 | 40% | 0.002 |
+| **silence GLUT5 only** | **0.62** | **—** | **44%** | **9** | **96%** | **0.245** |
+
+The obvious move is the wrong one. Silencing the regulation point — the thing
+the plate labels "the classic regulation point", the thing every instinct says
+to shut — leaves you **worse off than doing nothing**: it nearly doubles the
+damage and cuts the score to a third, because the glucose backs up behind the
+closed step while the fructose keeps arriving through a door the brake was
+never on. Shutting both doors is worse still in a different way: less damage,
+and nothing built.
+
+The answer is to shut the door the fructose is actually using and leave
+glycolysis able to clear what does get in. It takes a twenty-fourth of the
+damage, and it is the one plan where sugar uptake goes *up* — a cell that can
+process what arrives is a cell that keeps taking it.
+
+None of this is hidden. The shunt is drawn joining below the regulated step, the
+appendix says fructose bypasses the regulation point in the substance list, the
+gene note on aldolase B says it idles high and is not regulated, and the
+constitution's counsel names the trap outright. Finding it should cost a player
+one bad run, not twenty.
+
+### What the margin says when a cell is being harmed
+
+Building the fructose trap exposed a gap in the thing this game claims to do.
+Asked what was wrong with a lineage choking to death on sugar, the margin said:
+
+> **G3P → pyruvate is backed up behind pyruvate**
+> *pyruvate → lactate is what clears it, and LDH is at 15%. Activate LDH.*
+
+— and said exactly that whether or not the player had just made things twice as
+bad. The bottleneck diagnosis answers *"why is this reaction slow"*, which is
+the right question for a lineage that is merely inefficient and the wrong one
+for a lineage that is being poisoned. A pool jammed at its cap does damage every
+second it sits there, and nothing was reporting it.
+
+There is now a second diagnosis beside the first, and it takes the margin
+whenever there is harm being done, because a cell poisoning itself is a more
+urgent fact than a step running at 60%:
+
+> **glucose is choking this cell**
+> The pool is at 100% of what it can hold (48.0 of 48.0), and everything above
+> 85% is doing damage. This lineage has taken 294 of it, and damage does not
+> heal.
+> *It is arriving by glucose transporter (0.24/s), faster than anything here can
+> use it. Silence that, or clear it: glucose → 2 G3P is what clears it, and **you
+> silenced PFK-1 in generation 1. That is the cause.***
+
+Three things it does that the flux diagnosis could not:
+
+- **It reads the pool against this body's capacity, not the chart's.** A
+  constitution that holds less of something is more easily choked by it, and
+  the first version — reading the shared number — reported a cycle intermediate
+  sitting chronically high and missed the pool actually at its cap.
+- **It names every door.** A player told "sugar is arriving" shuts the sugar
+  door and leaves the other one open, which is precisely the trap. Every route
+  carrying more than a trickle is listed, and the note says outright that
+  shutting one leaves the others.
+- **It names the player's own mark when the player is the cause.**
+
+**Damage is also now kept in two accounts.** Food damage is a diet the lineage
+cannot afford; jam damage is a configuration that cannot clear what it is being
+given — and eating *less* is the wrong answer to the second. A single total was
+telling players they were eating badly when they were marking badly. Two of the
+diet tests were reading that total while testing a claim about food, which is
+why they had been passing for the wrong reason.
 
 ### Fixation, the one thing that cannot be undone
 
@@ -265,24 +351,50 @@ everywhere, which is the point of hedging.
 
 The best cell in the table needs both halves right. That is the cycle.
 
-#### One thing worth knowing before tuning this
+#### The forced move, and how far it moved
 
-Every set that does well marks the **amino acid transporter**. Nitrogen uptake,
-not carbon, is what caps growth if you leave it alone: glutamate sits at 3% of
-capacity in a cell that has not marked `aat`, and no amount of getting the
-carbon side right will move it. So the real budget is seven marks and a
-compulsory one, which is not what `tuning.py` says it intended — the comment
-there reads "nitrogen must not be the hard cap on growth, or no mark on the
-carbon side of the plate can ever change anything." It is a hard cap, and the
-mark that lifts it is one the player has to find.
+This was written up as a fault, and it deserved to be. Every set that did well
+marked the **amino acid transporter**, because nitrogen uptake — not carbon —
+was what capped growth if you left it alone: glutamate sat at 3% of capacity in
+a cell that had not marked `aat`, and no amount of getting the carbon side right
+would move it.
 
-I have left it, for now, because it is a discoverable constraint rather than a
-hidden one: the margin says the cell is short of glutamate, the appendix says
-which gene takes glutamate in, and a player who reads either will place it. But
-it is a forced move, and a forced move in a budget of eight is worth calling a
-fault rather than a feature. Raising `MEDIUM_TARGET["glutamate"]` or dropping
-biosynthesis's nitrogen cost would free it, at the price of making the nitrogen
-corner of the plate decorative.
+The fix was not to make nitrogen cheap. It was to notice that `aat` was idling
+at the default 0.15 while the other two principal transporters, `glut` and
+`mct`, both idle at 0.40. That is an inconsistency rather than a balance
+question — real cells express amino-acid transporters constitutively too — so
+`aat` now idles at 0.40 like its neighbours.
+
+What that bought, measured as what marking it is worth over not marking it:
+
+| `aat` idles at | glutamate held | growth | biomass | marking it buys |
+|---|---|---|---|---|
+| 0.15 (was) | 5% | 0.22 | 96 | ×3.44 |
+| 0.30 | 8% | 0.34 | 167 | ×1.99 |
+| **0.40 (now)** | **~11%** | **~0.40** | **~204** | **×1.63** |
+| 0.60 | 15% | 0.48 | 261 | ×1.27 |
+| 1.00 | 22% | 0.60 | 332 | ×1.00 |
+
+A mark that buys ×1.63 is a strong mark. A mark that buys ×3.44 is a tax.
+
+**It is not fully fixed, and the honest reason is a different one than I
+thought.** Varying only the eighth mark against a fixed seven, across five
+diets and seven constitutions, `aat` is still the best answer in eleven of
+twelve cases — but the margin over the runner-up is now about 14% of score
+rather than a tripling, and on the rich diet the answer changes. What the sweep
+actually exposed is that the runner-up is `PEPCK / FBPase` at ×1.02, and that
+*ten of twelve candidate marks are within ±2% of doing nothing at all* on the
+standard diet. The problem was never that `aat` is too strong. It is that most
+of the register is inert unless you are eating something that needs it — fat
+transport does nothing without fat, lactate transport does nothing without a
+neighbour to trade with — so the eighth mark has little to compete against.
+
+That is a design question rather than a number to tune, and it is the one I
+would put to a player before touching it: should a mark that is useless on your
+current diet be *visibly* useless, or should every gene do something for
+everybody? The plate already argues for the first — it prints unadopted
+pathways faintly — and the second would make the diet axis meaningless. So I
+have left it, and written down what it costs.
 
 ### Death
 
@@ -724,19 +836,14 @@ literature question. Five decisions were taken; each is reversible.
   If you want dosing to be a real action — supplementing the medium mid-run —
   say so and I will put the case for and against properly, but I am not going
   to add it quietly.
-- **Every food still enters through one of four existing gates.** Sugar, fat,
-  amino acids, lactate. The distinct entry points the design imagined — fibre
-  fermented to short-chain fatty acids arriving at acetyl-CoA, fructose
-  slipping past the regulation point, ethanol with its toxic intermediate —
-  would each be a new reaction and a new place on the plate, and none of them
-  is here. What is built instead is the axis they were for: relish against
-  damage, and a body that handles one food worse than another. Adding fructose
-  as its own gate is a day's work on top of what exists and would sharpen the
-  sugar constitution considerably; it is the first thing I would do next.
-- **Nitrogen uptake is a forced move.** Written up in full under the kitchen
-  above. One of the eight marks is not really a choice, and that is a fault
-  rather than a feature, left standing because it is discoverable rather than
-  hidden.
+- **Two of the three distinct entry points are still missing.** Fructose is
+  built (below). Fibre fermented to short-chain fatty acids arriving at
+  acetyl-CoA, and ethanol with its toxic intermediate, are not. Each would be
+  a metabolite, a gene, a reaction and a place on the plate — the fructose work
+  is the template for both, and the ethanol one is the more interesting because
+  its damage would be in the *intermediate* rather than in the food.
+- **Nitrogen uptake is still close to a forced move.** Softened, not fixed —
+  see below.
 - **A run is fifteen minutes and there is nothing after it.** The reckoning is
   an end, not a meta-game: no unlocks, no carry-over, nothing that turns one
   run into a campaign. That is deliberate for now — a lineage that leaves
