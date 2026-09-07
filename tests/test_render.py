@@ -155,6 +155,29 @@ def test_pools_do_not_overlap():
             assert gap > 0, f"{a} and {b} overlap"
 
 
+def test_no_appendix_page_prints_past_its_bottom_rule():
+    """A page that runs off the plate is a printing fault, and a silent one.
+
+    It has happened twice: once when a reaction was added to the reactions
+    page and once when two genes were added to the genes page. Both times the
+    last row printed over the rule and off the paper, and nothing failed —
+    the pages are generated from the data tables, so any table that grows can
+    do it again. This is the check that the tables cannot outgrow the paper.
+    """
+    from passage.render.reference import Reference
+
+    pygame.display.set_mode((1, 1))
+    appendix = Reference(network(), seed=9)
+    for page in range(appendix.count):
+        appendix.page = page
+        pixels = pygame.surfarray.array3d(appendix.surface())
+        below = pixels.astype(np.int32).mean(axis=2)[:, 692:]
+        inked = float((below < 150).mean())
+        assert inked < 1e-4, (
+            f"appendix page {page + 1} prints below its rule "
+            f"({inked:.4%} of the strip is inked)")
+
+
 # --- seeding ---------------------------------------------------------------
 
 def test_seeds_are_stable_across_processes():

@@ -134,7 +134,12 @@ class Reference:
                           palette.PENCIL, 0.2)
 
     def _reactions(self, surface: pygame.Surface) -> None:
-        y = TOP
+        # The step is fitted to the list rather than fixed, because the list
+        # grows: adding fructolysis pushed the last row off the bottom of the
+        # page, and a printed page that runs off the plate is a printing fault.
+        top, bottom = TOP, 668
+        step = min(38.0, (bottom - top) / max(1, len(rxn_data.INTERNAL)))
+        y = top
         for reaction in rxn_data.INTERNAL:
             gene = gene_data.BY_ID[reaction.enzyme]
             typo.draw(surface, reaction.label, (MARGIN, y), 12, palette.INK, 0.2)
@@ -145,14 +150,17 @@ class Reference:
                       align="right")
             typo.draw(surface, equation(reaction), (MARGIN + 10, y + 15), 10,
                       palette.PENCIL, 0.2)
-            y += 38
+            y += step
 
     def _genes(self, surface: pygame.Surface) -> None:
+        # Fitted to the list, like the reactions page and for the same reason:
+        # two more genes and the last row was printing over the bottom rule.
         half = (len(gene_data.GENES) + 1) // 2
+        step = min(52.0, (668 - TOP) / max(1, half))
         for n, gene in enumerate(gene_data.GENES):
             column, row = divmod(n, half)
             x = MARGIN + column * COLUMN
-            y = TOP + row * 52
+            y = TOP + row * step
             typo.draw(surface, gene.label, (x, y), 12, palette.INK, 0.2)
             if gene.markable:
                 typo.draw(surface, f"baseline {gene.baseline:.0%}", (x + 400, y),
@@ -160,7 +168,9 @@ class Reference:
             else:
                 typo.draw(surface, "cannot be marked", (x + 400, y), 10,
                           palette.PENCIL, 0.2)
-            for i, line in enumerate(_wrap(gene.note, 10, COLUMN - 130)):
+            # the note runs under the label, so it has the whole column: the
+            # baseline reading beside it is on the line above
+            for i, line in enumerate(_wrap(gene.note, 10, COLUMN - 44)):
                 typo.draw(surface, line, (x + 8, y + 15 + i * 13), 10,
                           palette.PENCIL, 0.2)
 

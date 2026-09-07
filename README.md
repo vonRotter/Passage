@@ -27,7 +27,7 @@ python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --eat "low sugar"        # start on a diet other than the default
 python -m passage --shot end.png --reckoning --grow --ticks 18000
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 172 tests
+python -m pytest                           # 173 tests
 ```
 
 `space` pauses · `tab` opens the appendix (seven pages; `1`–`8` on the
