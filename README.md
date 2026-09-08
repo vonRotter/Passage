@@ -27,7 +27,7 @@ python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --eat "low sugar"        # start on a diet other than the default
 python -m passage --shot end.png --reckoning --grow --ticks 18000
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 173 tests
+python -m pytest                           # 173 tests, 4 known-failing
 ```
 
 `space` pauses · `tab` opens the appendix (seven pages; `1`–`8` on the
@@ -117,6 +117,116 @@ hard and pours out lactate, the other takes lactate in and oxidises it. One
 cell's waste is the next one's fuel, and it is the only way carbon moves between
 members of a lineage.
 
+### Doing nothing used to beat playing
+
+The worst thing found in this project, and it had been there from the start.
+
+Searching for the best eight marks under several bodies and diets turned up
+optima that were mostly *silencings* — shut the transporters, eat almost
+nothing, build a little. Measured over a full run on the standard diet:
+
+| plan | built | eaten | yield | vigour | score |
+|---|---|---|---|---|---|
+| greedy optimum | 199 | 347 | 0.573 | 39% | 0.141 |
+| greedy optimum (2) | **64** | 136 | 0.468 | 50% | **0.143** |
+| a normal respiring build | **437** | 1436 | 0.304 | 19% | **0.041** |
+| nothing at all — no marks | 158 | 855 | 0.185 | 75% | 0.104 |
+
+The lineage that built 64 scored better than the one that built 437, and doing
+nothing at all beat a configured cell by two and a half times. A game whose
+optimum is not to play it is mis-scored.
+
+**Two faults, both real, and neither was the one I first suspected.**
+
+*Congestion damage was charged on pool fill.* The comment above it had always
+said the right thing — "a substance that sits high, **for a long time**, in a
+cell **with no way to get rid of it**" — and the code measured only the first
+clause. A full pool is what a working pipeline looks like, so the busier a
+lineage was the more it paid: the respiring build jammed seven pools and lost
+four fifths of its vigour while an unconfigured cell sat comfortable. It now
+takes all three clauses: near enough to full to have no headroom, filling
+faster than anything clears it, and doing so for long enough to count. The same
+build now keeps 93% of its vigour and builds 742 instead of 437.
+
+*The score had no production term.* It was yield times condition — and with
+intake in the denominator and nothing counting output, the way to win was to
+eat as little as possible. The opening line of this game is "a target you must
+hit"; a score that never asks whether you hit it is not scoring the game. There
+are now four bounded factors multiplied together — how much was built, how
+cheaply, in what state, and whether the living was worth doing — and neither the
+production nor the efficiency term can run away, because both saturate rather
+than divide.
+
+With both fixed, the configured build scores 0.244 against 0.082 for doing
+nothing, and the starve builds come last.
+
+### The constitutions have lost their teeth
+
+Fixing that broke something, and this is the honest report of it rather than a
+patch over it.
+
+Most of the constitutions had no cost mechanism of their own. Their teeth were
+congestion damage — which is to say, the fault above. With it corrected, they
+barely differentiate. Every constitution against every diet, as the game now
+stands:
+
+| | standard | low sugar | low fat | low protein | creamy | plain | rich | wants |
+|---|---|---|---|---|---|---|---|---|
+| even | 0.159 | 0.153 | 0.120 | 0.159 | **0.166** | 0.098 | 0.071 | creamy |
+| poor sugar handling | 0.155 | 0.148 | 0.120 | 0.115 | **0.160** | 0.091 | 0.037 | creamy |
+| poor fat handling | 0.129 | 0.109 | 0.118 | 0.123 | **0.137** | 0.096 | 0.050 | creamy |
+| reduced respiration | 0.157 | 0.137 | 0.135 | 0.153 | **0.163** | 0.107 | 0.071 | creamy |
+| poor nitrogen clearance | 0.153 | 0.147 | 0.104 | 0.151 | **0.160** | 0.087 | 0.088 | creamy |
+| no milk tolerance | 0.160 | 0.155 | 0.123 | **0.164** | 0.145 | 0.099 | 0.075 | low protein |
+| thrifty | 0.174 | 0.159 | 0.150 | 0.112 | **0.178** | 0.116 | 0.049 | creamy |
+
+Six of seven want the same dinner. The design's central claim — *there is no
+diet that is simply correct* — is currently false: creamy is simply correct.
+
+Four tests in `test_constitution.py` assert that claim. They are marked
+`xfail(strict=True)` rather than weakened, so the claims stay written down, the
+suite is honest about not meeting them, and whatever closes the gap will be told
+about it.
+
+**Why no amount of tuning fixes this.** Congestion is the same lever for both
+things: crank it and a busy cell is punished for being busy, ease it and the
+constitutions stop mattering. Six threshold/power/coefficient combinations were
+measured and none satisfies both. The reason is structural — transport here is
+passive, so a cell can never actually overfill; it stops absorbing instead. A
+body that handles a food badly and a cell doing a great deal of work both end up
+with pools near capacity in flux balance, and no measure of fill, headroom,
+balance or residence time separates them.
+
+**One trait was worse than toothless.** "No milk tolerance" redirected milk
+sugar to lactate, on the reasoning that undigested sugar ferments on the way in
+and arrives as acid. It reads well and it is backwards: lactate joins the
+pathway at pyruvate, *after* the two ATP glycolysis spends getting there, so the
+redirect handed that lineage a cheaper route than everyone else's. It built half
+again as much on a dairy diet as an even lineage did. It is now what it plainly
+is — most of the milk sugar never arrives, and the little that does is tolerated
+badly — which costs it about a quarter of its score on a dairy-led diet and
+nothing at all on any other. That needed a new field, `tolerates`: `handles`
+scales damage *above* a food's forgiven threshold, and dairy's threshold is
+higher than any intake the game produces, so "this body pays more for milk" was
+multiplying zero. A low tolerance is the honest shape of the complaint anyway.
+
+**What it would take, for whoever picks this up.** The traits need a channel
+that is not congestion. Three candidates, in the order I would try them:
+
+1. **Capacity costs that show in production.** Now that the score counts what
+   was built, a trait that makes a body build less is visible without needing
+   damage at all. This is the smallest change and probably the right one.
+2. **Lower tolerances on the foods each trait is about**, as milk intolerance
+   now has. Legible, but it only works for foods with a non-zero harm
+   coefficient — the plain foods have none by design, so it cannot express "this
+   body handles ordinary carbohydrate badly".
+3. **A damage term for flux the cell cannot use** — carbon taken in and spilled
+   or exported rather than built with. This is closest to the original intent
+   and the most work.
+
+I have not chosen between them. It decides what a constitution *is*, and that
+is a design decision rather than a defect.
+
 ### Fructose, and the trap it makes
 
 Every other food arrives through one of four doors — sugar, fat, amino acids,
@@ -132,25 +242,26 @@ Half of what sweet food brings now arrives as fructose. Fruit carries some too,
 more slowly. And that produces the sharpest decision in the game. A lineage with
 **poor sugar handling**, eating sweet, four ways:
 
-| | sugar in | fructose in | glucose held | damage | vigour | score |
-|---|---|---|---|---|---|---|
-| do nothing | 0.45 | 0.55 | 61% | 217 | 53% | 0.156 |
-| silence PFK-1 | 0.24 | 0.51 | 100% | 407 | 37% | 0.057 |
-| silence PFK-1 and GLUT5 | 0.24 | — | 100% | 355 | 40% | 0.002 |
-| **silence GLUT5 only** | **0.62** | **—** | **44%** | **9** | **96%** | **0.245** |
+| | built | glucose held | damage | vigour | score |
+|---|---|---|---|---|---|
+| do nothing | 544 | 65% | 256 | 48% | 0.130 |
+| silence PFK-1 | 176 | 100% | 681 | 26% | **0.024** |
+| silence PFK-1 and GLUT5 | 3 | 100% | 582 | 29% | 0.000 |
+| activate PFK-1 | 410 | 85% | 241 | 50% | 0.097 |
+| **silence GLUT5 only** | **338** | **44%** | **0** | **100%** | **0.195** |
 
 The obvious move is the wrong one. Silencing the regulation point — the thing
 the plate labels "the classic regulation point", the thing every instinct says
-to shut — leaves you **worse off than doing nothing**: it nearly doubles the
-damage and cuts the score to a third, because the glucose backs up behind the
-closed step while the fructose keeps arriving through a door the brake was
-never on. Shutting both doors is worse still in a different way: less damage,
-and nothing built.
+to shut — leaves you at **a fifth of the score of leaving it alone**: the
+glucose backs up behind the closed step while the fructose keeps arriving
+through a door the brake was never on. Shutting both doors is worse still in a
+different way: almost nothing built at all. Marking the regulation point *up*
+does not rescue it either, because the problem was never the enzyme.
 
 The answer is to shut the door the fructose is actually using and leave
-glycolysis able to clear what does get in. It takes a twenty-fourth of the
-damage, and it is the one plan where sugar uptake goes *up* — a cell that can
-process what arrives is a cell that keeps taking it.
+glycolysis able to clear what does get in. It takes **no damage whatsoever** and
+finishes at full vigour, and it is the one plan where sugar uptake goes *up* —
+a cell that can process what arrives is a cell that keeps taking it.
 
 None of this is hidden. The shunt is drawn joining below the regulated step, the
 appendix says fructose bypasses the regulation point in the substance list, the

@@ -81,24 +81,35 @@ def test_silencing_the_regulation_point_does_not_touch_the_shunt():
 
 def test_shutting_the_front_door_leaves_a_sugar_averse_lineage_worse_off():
     core = [(g, Kind.ACTIVATING) for g in CORE]
-    nothing = run(core, SWEET, "sugar_averse")
-    front = run(core + [("pfk", Kind.SILENCING)], SWEET, "sugar_averse")
+    whole = tuning.RUN_LENGTH
+    nothing = run(core, SWEET, "sugar_averse", seconds=whole)
+    front = run(core + [("pfk", Kind.SILENCING)], SWEET, "sugar_averse",
+                seconds=whole)
 
     assert front[2].damage > nothing[2].damage, \
         "silencing the regulation point is supposed to be a trap here"
     assert front[2].vigour < nothing[2].vigour
+    # and it costs more than it looks: a fifth of the score of leaving it alone
+    assert front[2].score(front[3].pool("biomass")) < \
+        nothing[2].score(nothing[3].pool("biomass")) * 0.4
 
 
 def test_shutting_the_door_the_fructose_uses_is_the_answer():
+    # over a whole run, because this is a claim about the score and the score
+    # counts what was built: at four hundred seconds the two are still level
+    # and the answer has not had time to pay for itself
     core = [(g, Kind.ACTIVATING) for g in CORE]
-    nothing = run(core, SWEET, "sugar_averse")
-    back = run(core + [("glut5", Kind.SILENCING)], SWEET, "sugar_averse")
+    whole = tuning.RUN_LENGTH
+    nothing = run(core, SWEET, "sugar_averse", seconds=whole)
+    back = run(core + [("glut5", Kind.SILENCING)], SWEET, "sugar_averse",
+               seconds=whole)
 
     assert back[0].rate_of("exchange_fructose") < 0.02, "fructose still arriving"
     assert back[2].damage < nothing[2].damage * 0.2
     assert back[2].score(back[3].pool("biomass")) > \
         nothing[2].score(nothing[3].pool("biomass")) * 1.4, \
         "the answer does not pay enough to be worth finding"
+    assert back[2].damage < 1.0, "the right answer should cost nothing at all"
     # and it is the one plan where *more* sugar comes in, which is the point:
     # a cell that can process what arrives keeps taking it
     assert back[0].rate_of("exchange_glucose") > \

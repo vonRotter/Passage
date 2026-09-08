@@ -68,6 +68,13 @@ class Vigour:
         self.congested: list[str] = []
         self.eaten: dict[str, float] = {f: 0.0 for f in self.diet}
         self.last: list[Bite] = []
+        #: (exchange rows -> metabolites), so a tick can total what crossed the
+        #: membrane without looping in Python over the exchange table.
+        self._x_gate = np.zeros((self.net.n_exchange, self.net.n_metabolites))
+        self._x_gate[np.arange(self.net.n_exchange), self.net.x_metabolite] = 1.0
+        #: How stuck each substance has been lately, smoothed. A jam has to
+        #: last to be one.
+        self._jam = np.zeros(self.net.n_metabolites)
         self.served = "standard"
         self.changes = 0
         #: The broth before any diet was written into it. Kept so that serving a
@@ -148,6 +155,11 @@ class Vigour:
         c = getattr(self.flow, "constitution", None)
         return {} if c is None else c.redirects.get(food_id, {})
 
+    def _tolerates(self, food_id: str) -> float:
+        """How much of a food this body takes before it starts to cost."""
+        c = getattr(self.flow, "constitution", None)
+        return 1.0 if c is None else c.tolerates.get(food_id, 1.0)
+
     def _handles(self, food_id: str) -> float:
         """How much this body pays for a food, relative to a standard one."""
         c = getattr(self.flow, "constitution", None)
@@ -205,7 +217,7 @@ class Vigour:
             intake /= count                       # per cell, for relish and harm
 
             relish = food.relish * intake
-            over = max(0.0, intake - food.forgiven)
+            over = max(0.0, intake - food.forgiven * self._tolerates(food_id))
             harm = (food.harm * self._handles(food_id)
                     * (over / tuning.DAMAGE_REFERENCE) ** 2)
             pleasure += relish
@@ -228,10 +240,47 @@ class Vigour:
         fills = np.clip(self.flow.pools[rows] / self.flow.cap[rows], 0.0, 1.0)
         fills = np.where(n.congests & ~n.buffered, fills, 0.0)
         over = np.maximum(fills - tuning.CONGESTION_THRESHOLD, 0.0)
-        congestion = float((over ** 2).sum()) / count
+
+        # A full pool is not the same thing as a stuck one, and for a long
+        # while this counted them as the same. It charged for *fill*, so the
+        # busier a lineage was the more it paid: a configured, respiring cell
+        # jammed seven pools and lost four fifths of its vigour, while a cell
+        # with no marks at all sat comfortable. Doing nothing scored better
+        # than playing, which is the plainest possible statement that a rule
+        # is wrong.
+        #
+        # What the comment above always said, now measured: a substance does
+        # damage when the cell has *no way to be rid of it*. A pool carrying a
+        # great deal that leaves as fast as it arrives is a working pipeline.
+        # A pool that is filling faster than anything consumes it is the jam.
+        produced = self.flow.rate[rows] @ n.s_out
+        consumed = self.flow.rate[rows] @ n.s_in
+        traded = self.flow.x_rate[rows] @ self._x_gate
+        inflow = produced + np.maximum(traded, 0.0)
+        # Sending something out is not as good as using it. A cell that can
+        # only be rid of a substance by flushing it into the medium is coping
+        # rather than metabolising, and the difference is the whole of what a
+        # constitution does: milk sugar that arrives as acid leaves again, and
+        # counting that as cleanly cleared left the trait with no mechanism.
+        outflow = consumed + tuning.EXPORT_CLEARS * np.maximum(-traded, 0.0)
+        stuck = np.clip(1.0 - outflow / (inflow + 1e-9), 0.0, 1.0)
+
+        # "for a long time", which the comment always claimed and the code did
+        # not do either. Near a steady state the flux balance oscillates about
+        # zero from tick to tick, so an instantaneous reading flickers: the
+        # plate's alarm colour would blink and the margin would lose the pool
+        # it was explaining mid-sentence. Smoothed over a couple of seconds, a
+        # jam has to persist to count, which is what was meant.
+        now = (over ** tuning.CONGESTION_POWER
+               * (tuning.JAM_FLOOR + (1.0 - tuning.JAM_FLOOR) * stuck)
+               ).sum(axis=0) / count
+        keep = math.exp(-dt / tuning.JAM_TAU)
+        self._jam = self._jam * keep + now * (1.0 - keep)
+
+        congestion = float(self._jam.sum())
         self.congestion = congestion
         self.congested = [n.metabolites[i].id
-                          for i in np.flatnonzero(over.max(axis=0) > 1e-6)]
+                          for i in np.flatnonzero(self._jam > 1e-5)]
 
         jam_rate = (tuning.SPILL_DAMAGE * spilling
                     + tuning.CONGESTION_DAMAGE * congestion)
@@ -285,48 +334,48 @@ class Vigour:
 
     # -- the score -------------------------------------------------------------
     def score(self, produced: float) -> float:
-        """What the run was worth: what you built, per unit eaten, weighted by
-        the state you left the lineage in and whether the living was worth doing.
+        """What the run was worth: what you built, how cheaply, and in what state.
 
-        Vigour is a *multiplier*, not a footnote, and it has to be. Measured on
-        output alone -- or even on yield -- a lineage living on sweets ties with
-        one eating well; it just burns itself down to get there. The difference
-        only shows up when the score asks what is left at the end.
+        Four terms, each bounded, multiplied together.
+
+        **Production** is first, and for a long time it was absent. The score
+        was yield times condition, which sounds reasonable and is not: with
+        intake in the denominator and nothing counting output, the way to win
+        was to eat as little as possible. Measured over a full run, a lineage
+        that built 64 units scored 0.143 and one that built 742 scored 0.041,
+        and doing nothing at all beat a configured, respiring cell by two and a
+        half times. A game whose optimum is not to play it is mis-scored.
+
+        **Efficiency** is the old yield term, now saturating rather than
+        dividing. As a bare ratio it ran away as intake fell; bounded, it still
+        rewards getting more from less and can no longer be won by fasting.
 
         The denominator is food **absorbed**, and that is right, though it took
         a wrong turn to be sure of it. Charging for food *offered* instead
         punishes a lineage for being given a large meal it had no way to use,
         which is not a failing.
 
+        **Vigour** is what the diet left behind, and it is a multiplier rather
+        than a footnote: measured on output alone a lineage living on sweets
+        ties with one eating well, because it simply burns itself to get there.
+        **Relish** counts too, at a smaller weight, because a lineage that never
+        got anything out of eating did worse and the score should say so.
+
         The reason more food does not simply buy more growth is worth stating,
         because it looks like a bug and is not: the cell is **enzyme-limited**,
-        not supply-limited. Twenty times the food moves biomass by forty per
-        cent, because what the lineage can process is set by the eight marks it
-        has to spend, and marks are the scarce resource. A healthy cell also
+        not supply-limited. What a lineage can process is set by the eight marks
+        it has to spend, and marks are the scarce resource. A healthy cell also
         cannot overeat -- transport is passive, so once its pools are full the
         gradient closes and it stops absorbing. A cell with a constitution that
         cannot clear something is the one that *can* overeat, because its pools
         never come down. That asymmetry is the diet axis, and it is deliberate.
         """
         eaten = sum(self.eaten.values())
-        if eaten <= 1e-9:
+        if eaten <= 1e-9 or produced <= 0.0:
             return 0.0
+        built = produced / (produced + tuning.SCORE_TARGET)
+        yields = produced / eaten
+        efficiency = yields / (yields + tuning.SCORE_YIELD_HALF)
         mood = (tuning.SCORE_RELISH_FLOOR
                 + (1.0 - tuning.SCORE_RELISH_FLOOR) * self.relish)
-        return (produced / eaten) * self.vigour * mood
-
-    # -- reporting -------------------------------------------------------------
-    def summary(self) -> str:
-        """One line naming what is actually doing the harm."""
-        worst = max(self.last, key=lambda b: b.harm, default=None)
-        eating = worst.harm if worst else 0.0
-        backing_up = (tuning.CONGESTION_DAMAGE * self.congestion
-                      + tuning.SPILL_DAMAGE * self.spilling)
-        if backing_up > eating and backing_up > 1e-3:
-            names = ", ".join(
-                self.net.metabolites[self.net.mi(m)].label
-                for m in self.congested[:2]) or "waste"
-            return f"the damage is {names} sitting where it cannot be cleared"
-        if eating < 1e-4:
-            return "nothing here is costing you anything"
-        return f"most of the damage is {food_data.BY_ID[worst.food].label}"
+        return built * efficiency * self.vigour * mood

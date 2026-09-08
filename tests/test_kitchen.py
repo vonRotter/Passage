@@ -73,14 +73,25 @@ def test_a_diet_that_drops_a_staple_clears_it_from_the_medium():
 
 
 def test_the_gates_a_diet_serves_are_measured_after_the_body_has_its_say():
-    """A lineage that ferments its milk sugar on the way in is fed acid."""
+    """What a diet delivers is a fact about the body, not only about the food.
+
+    This used to check that a milk-intolerant lineage was fed acid instead of
+    sugar. That trait no longer redirects anything -- the redirect turned out to
+    be a benefit rather than a cost, because lactate joins the pathway below the
+    two ATP glycolysis spends -- so what it checks now is the plainer half:
+    most of the milk simply does not arrive.
+    """
     milk = constitutions.BY_ID["milk_intolerant"]
     creamy = {"dairy": 4.0}
     standard = kitchen.gates(creamy)
     theirs = kitchen.gates(creamy, milk)
-    assert standard.get("lactate", 0.0) == 0.0
-    assert theirs.get("lactate", 0.0) > 0.0
-    assert theirs.get("glucose", 0.0) < standard["glucose"]
+    for gate in ("glucose", "glutamate", "palmitate"):
+        assert theirs[gate] < standard[gate] * 0.6, \
+            f"dairy still delivers its {gate} in full to a body that cannot use it"
+
+    # and a body with no trait against a food is fed exactly what it is offered
+    even = constitutions.BY_ID["even"]
+    assert kitchen.gates(creamy, even) == standard
 
 
 # --- the invalidation ------------------------------------------------------

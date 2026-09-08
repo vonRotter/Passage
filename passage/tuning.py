@@ -209,8 +209,17 @@ SPILL_DAMAGE = 2.4          # damage per unit of material actually spilled
 # it. So damage accrues on how far a pool sits above this mark, squared, which
 # means a pool at nine tenths is not nine times worse than one at a tenth -- it
 # is the only one that counts at all.
-CONGESTION_THRESHOLD = 0.85
-CONGESTION_DAMAGE = 22.0
+# A pool does harm when the cell cannot be rid of what is in it. Two things
+# have to be true: it must be near enough to full to have no headroom left, and
+# it must be filling faster than anything is clearing it. Charging for fill
+# alone -- which this did for a long time -- charges a lineage for having a
+# working factory, and made doing nothing score better than playing.
+CONGESTION_THRESHOLD = 0.92
+CONGESTION_POWER = 3.0
+JAM_FLOOR = 0.25             # what a full-but-flowing pool still costs
+JAM_TAU = 2.5                # seconds; how long a pool must stay stuck to count
+EXPORT_CLEARS = 0.5          # how well flushing a substance counts against using it
+CONGESTION_DAMAGE = 300.0
 
 # How concentrated a diet makes the medium, per unit of supply rate. This is
 # the number that decides whether a cell can overeat. Transport is passive, so
@@ -233,6 +242,18 @@ UPKEEP_PENALTY = 2.6        # how much more a worn-out lineage pays just to exis
 # score and not a footnote to it. Relish counts too, at a smaller weight: a
 # lineage that never had any pleasure did worse, and the score should say so.
 SCORE_RELISH_FLOOR = 0.6     # share of the score that does not depend on pleasure
+
+# ...and the first thing it weighs is how much was built, which for a long time
+# it did not weigh at all. The score was yield times condition, so a lineage
+# that produced 64 units efficiently beat one that produced 742, and refusing
+# to eat beat playing. The opening line of this game is "a target you must
+# hit"; a score that does not count whether you hit it is not scoring the game.
+#
+# Both terms saturate rather than divide, so neither can run away: doubling a
+# small output matters, doubling a large one matters less, and driving intake
+# towards zero no longer sends the ratio to infinity.
+SCORE_TARGET = 420.0         # biomass at which the production term reads a half
+SCORE_YIELD_HALF = 0.30      # yield at which the efficiency term reads a half
 
 # --- conservation tolerances ---------------------------------------------
 BALANCE_TOLERANCE = 1e-9        # atom balance, per reaction, at load

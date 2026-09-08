@@ -51,6 +51,17 @@ class Constitution:
     baseline: dict[str, float] = field(default_factory=dict)
     #: Multipliers on a food's damage. Above 1 means this body pays more for it.
     handles: dict[str, float] = field(default_factory=dict)
+    #: Multipliers on a food's *forgiven* intake -- how much of it this body can
+    #: take before it costs anything. Below 1 is a lower tolerance.
+    #:
+    #: Separate from ``handles`` because they are different complaints and only
+    #: one of them was expressible. ``handles`` scales the damage above the
+    #: threshold, so for a food whose threshold nobody reaches it multiplies
+    #: zero: dairy is forgiven up to 0.9 and a heavy dairy diet delivers 1.3, so
+    #: a body that "pays more for milk" paid more for almost nothing. A low
+    #: tolerance is the honest shape of the complaint anyway -- it is not that
+    #: milk is more toxic to you, it is that you can take less of it.
+    tolerates: dict[str, float] = field(default_factory=dict)
     #: Multipliers on what a food actually delivers into the medium.
     absorbs: dict[str, float] = field(default_factory=dict)
     #: What a food turns into for this body instead of what it is for everyone
@@ -126,19 +137,29 @@ CONSTITUTIONS: list[Constitution] = [
 
     Constitution(
         "milk_intolerant", "no milk tolerance",
-        "milk sugar ferments on the way in and arrives as acid",
-        # The sugar is not simply lost. It is fermented on the way in and
-        # arrives as acid, which this lineage then has to clear with a smaller
-        # pool to hold it in. That is a mechanism rather than a penalty, and it
-        # is why a dairy-led diet costs this body specifically.
-        absorbs={"dairy": 0.75},
-        redirects={"dairy": {"glucose": "lactate"}},
+        "milk sugar this lineage cannot take in, and cannot take much of",
+        # This trait used to redirect milk sugar to lactate, on the reasoning
+        # that undigested sugar ferments on the way in and arrives as acid. It
+        # reads well and it was backwards: lactate joins the pathway at
+        # pyruvate, *after* the two ATP glycolysis spends getting there, so the
+        # redirect handed this lineage a cheaper route than everyone else's. It
+        # built half again as much on a dairy diet as an even lineage did. What
+        # had been hiding that was a congestion rule charging for pool fill,
+        # which is a different fault and is fixed elsewhere; with the fill rule
+        # corrected, being lactose intolerant was simply an advantage.
+        #
+        # So it is what it plainly is instead: most of the milk sugar never
+        # arrives, and the little that does is tolerated badly. Sound in the
+        # fiction, and it costs this body only when it actually drinks milk.
+        absorbs={"dairy": 0.45},
+        tolerates={"dairy": 0.06},
+        handles={"dairy": 6.0},
         holds={"lactate": 0.3},
-        counsel="Milk arrives as acid rather than as sugar in this lineage, "
-                "and it has less room to hold it than most. Something has to "
-                "burn the lactate — a cell marked to oxidise it — or the dairy "
-                "has to come out of the diet. Taking the fat and the nitrogen "
-                "from somewhere else is the simpler answer.",
+        counsel="Most of what milk offers this lineage never gets in, and the "
+                "little that does is tolerated badly — a dairy-led diet costs "
+                "it a quarter of its score and gives it less than it gives "
+                "anyone else. On any other diet the trait is invisible. Take "
+                "the fat and the nitrogen from somewhere else.",
     ),
 
     Constitution(
