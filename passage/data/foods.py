@@ -125,22 +125,24 @@ BY_ID: dict[str, Food] = {f.id: f for f in FOODS}
 #: A middling diet that suits nobody in particular, which is the point: it is
 #: where a run starts, not where it should end.
 STANDARD: dict[str, float] = {
-    "vegetables": 2.0,
-    "wholegrain": 1.4,
-    "legumes": 0.6,
-    "fish": 0.5,
-    "dairy": 0.5,
-    "red_meat": 0.25,
-    "sweets": 0.3,
+    "vegetables": 2.06,
+    "wholegrain": 1.44,
+    "legumes": 0.62,
+    "fish": 0.51,
+    "dairy": 0.51,
+    "red_meat": 0.26,
+    "sweets": 0.31,
 }
 
 #: Two diets that lose, in opposite directions, kept here because the test that
 #: says moderation wins needs something to beat.
 #:
-#: All three supply the same total food. That normalisation is not a detail: a
-#: comparison where the rich diet also happens to be the larger one proves only
-#: that more food grows more cell. The question is *what* you eat, at the same
-#: amount.
+#: Every diet here supplies the same total food, to within a per cent or two --
+#: every one but ``SPARSE``, which is deliberately half and is the only diet
+#: about *quantity*. That normalisation is not a detail, and it went wrong once:
+#: ``CREAMY`` drifted eight per cent above the rest and promptly became the best
+#: diet for six of the seven constitutions, which looked like a balance problem
+#: with the traits and was really just the biggest dinner winning.
 #: A spread of diets to choose between. None of them is right on its own -- what
 #: makes one right is the constitution it is being fed to.
 LOW_SUGAR: dict[str, float] = {
@@ -154,7 +156,7 @@ LOW_PROTEIN: dict[str, float] = {
     "wholegrain": 2.4, "vegetables": 1.25, "butter": 1.35, "sweets": 0.6,
 }
 CREAMY: dict[str, float] = {
-    "dairy": 4.4, "vegetables": 1.3, "wholegrain": 0.9, "sweets": 0.3,
+    "dairy": 4.08, "vegetables": 1.20, "wholegrain": 0.83, "sweets": 0.28,
 }
 SPARSE: dict[str, float] = {
     "vegetables": 1.2, "wholegrain": 0.8, "legumes": 0.4, "fish": 0.35,

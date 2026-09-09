@@ -450,8 +450,13 @@ class Reference:
                       palette.PENCIL, 0.2)
 
 
-def _effects(con) -> str:
-    """The trait in shorthand, so the page is a table and not a story."""
+def _effects(con, width: float = 430.0) -> str:
+    """The trait in shorthand, so the page is a table and not a story.
+
+    Trimmed to the column rather than allowed to run off the paper: a thrifty
+    constitution touches seven things and used to print the last of them into
+    the margin and past the edge of the page.
+    """
     from ..data import metabolites as met
     bits = []
     for row, factor in con.capacity.items():
@@ -464,7 +469,15 @@ def _effects(con) -> str:
         low = min(con.absorbs.values())
         high = max(con.absorbs.values())
         bits.append("takes up ×%g" % (low if low == high else high))
-    return " · ".join(bits) if bits else "—"
+    if not bits:
+        return "—"
+    shown = ""
+    for n, bit in enumerate(bits):
+        trial = f"{shown} · {bit}" if shown else bit
+        if typo.width(f"{trial} · and {len(bits) - n - 1} more", 10, 0.2) > width:
+            return f"{shown} · and {len(bits) - n} more" if shown else bit
+        shown = trial
+    return shown
 
 
 def _wrap(text: str, size: int, width: float) -> list[str]:

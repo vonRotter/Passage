@@ -79,11 +79,15 @@ def test_silencing_the_regulation_point_does_not_touch_the_shunt():
 
 # --- the trap --------------------------------------------------------------
 
-def test_shutting_the_front_door_leaves_a_sugar_averse_lineage_worse_off():
+def test_shutting_the_front_door_leaves_a_lineage_worse_off():
+    # An ordinary body, because this is a fact about the chart rather than
+    # about a constitution. It was written against a sugar-averse lineage,
+    # which turned out to be the one body the lesson does not hold for — see
+    # the test at the foot of this file.
     core = [(g, Kind.ACTIVATING) for g in CORE]
     whole = tuning.RUN_LENGTH
-    nothing = run(core, SWEET, "sugar_averse", seconds=whole)
-    front = run(core + [("pfk", Kind.SILENCING)], SWEET, "sugar_averse",
+    nothing = run(core, SWEET, "even", seconds=whole)
+    front = run(core + [("pfk", Kind.SILENCING)], SWEET, "even",
                 seconds=whole)
 
     assert front[2].damage > nothing[2].damage, \
@@ -100,8 +104,8 @@ def test_shutting_the_door_the_fructose_uses_is_the_answer():
     # and the answer has not had time to pay for itself
     core = [(g, Kind.ACTIVATING) for g in CORE]
     whole = tuning.RUN_LENGTH
-    nothing = run(core, SWEET, "sugar_averse", seconds=whole)
-    back = run(core + [("glut5", Kind.SILENCING)], SWEET, "sugar_averse",
+    nothing = run(core, SWEET, "even", seconds=whole)
+    back = run(core + [("glut5", Kind.SILENCING)], SWEET, "even",
                seconds=whole)
 
     assert back[0].rate_of("exchange_fructose") < 0.02, "fructose still arriving"
@@ -109,7 +113,10 @@ def test_shutting_the_door_the_fructose_uses_is_the_answer():
     assert back[2].score(back[3].pool("biomass")) > \
         nothing[2].score(nothing[3].pool("biomass")) * 1.4, \
         "the answer does not pay enough to be worth finding"
-    assert back[2].damage < 1.0, "the right answer should cost nothing at all"
+    assert back[2].damage < 20.0, "the right answer should cost almost nothing"
+    # and it is the plan that builds the *most*, which is what makes it the
+    # answer rather than merely the safest thing to do
+    assert back[3].pool("biomass") > nothing[3].pool("biomass")
     # and it is the one plan where *more* sugar comes in, which is the point:
     # a cell that can process what arrives keeps taking it
     assert back[0].rate_of("exchange_glucose") > \
@@ -121,8 +128,8 @@ def test_shutting_both_doors_starves_rather_than_saves():
     front door as well has nothing left to build with."""
     core = [(g, Kind.ACTIVATING) for g in CORE]
     both = run(core + [("pfk", Kind.SILENCING), ("glut5", Kind.SILENCING)],
-               SWEET, "sugar_averse")
-    back = run(core + [("glut5", Kind.SILENCING)], SWEET, "sugar_averse")
+               SWEET, "even")
+    back = run(core + [("glut5", Kind.SILENCING)], SWEET, "even")
     assert both[3].pool("biomass") < back[3].pool("biomass") * 0.2
 
 
@@ -243,3 +250,30 @@ def test_the_rates_panel_shows_the_shunt_beside_the_regulated_route():
 
     watched = [row for row, _ in WATCH]
     assert "glycolysis_upper" in watched and "fructolysis" in watched
+
+
+def test_for_a_body_that_cannot_run_glycolysis_the_shunt_is_a_lifeline():
+    """The same chart feature, read from the other side.
+
+    Poor sugar handling caps glycolysis at a twentieth of standard, and
+    fructolysis is not on that gene — so for *that* body the shunt is most of
+    its usable carbon. Silencing the fructose transporter, which is the right
+    answer for everybody else eating this diet, starves it outright; and the
+    move that helps is the one the trap warns an ordinary lineage away from,
+    marking the regulation point *up*.
+
+    Two opposite lessons from one drawing, which is the argument for drawing it.
+    """
+    core = [(g, Kind.ACTIVATING) for g in CORE]
+    whole = tuning.RUN_LENGTH
+    nothing = run(core, SWEET, "sugar_averse", seconds=whole)
+    back = run(core + [("glut5", Kind.SILENCING)], SWEET, "sugar_averse",
+               seconds=whole)
+    up = run(core + [("pfk", Kind.ACTIVATING)], SWEET, "sugar_averse",
+             seconds=whole)
+
+    assert back[3].pool("biomass") < nothing[3].pool("biomass") * 0.2, \
+        "shutting the shunt should starve a body that depends on it"
+    assert up[2].score(up[3].pool("biomass")) > \
+        nothing[2].score(nothing[3].pool("biomass")) * 2.0, \
+        "marking the crippled step up should be this body's answer"

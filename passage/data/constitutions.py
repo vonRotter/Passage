@@ -88,15 +88,23 @@ CONSTITUTIONS: list[Constitution] = [
         # Sugar crosses the membrane as readily as it does for anyone -- that
         # is exactly the trouble. What is missing is the capacity to *use* it,
         # so it arrives, sits, fills the cell, and overflows.
-        capacity={"glycolysis_upper": 0.6},
+        # 0.06, not 0.6. The number looks drastic and is not: base rates on
+        # this plate sit far above what a cell actually draws, so a multiplier
+        # only *binds* once it cuts below the flux the step is carrying. With
+        # PFK-1 marked, glycolysis_upper can do 9.0/s and the cell wants about
+        # 0.8/s; at 0.6 the ceiling was still ten times the demand and the
+        # trait did nothing at all. At 0.06 the ceiling is 0.54/s and a
+        # sugar-led diet builds less than half what an even body builds on it.
+        capacity={"glycolysis_upper": 0.06},
         handles={"sweets": 1.8},
         holds={"glucose": 0.8, "fructose": 0.75},
-        counsel="Sugar that cannot be burnt is sugar that sits in the cell "
-                "doing damage. The obvious move is the wrong one: silencing "
-                "PFK-1 shuts the front door and half of what sweet food "
-                "brings is fructose, which joins below it and does not "
-                "care. Shut the fructose transporter instead and leave "
-                "glycolysis able to clear what does get in.",
+        counsel="Glycolysis itself is the ceiling here, so mark PFK-1 up: "
+                "this is the one body in the game that gains by pushing the "
+                "regulation point rather than shutting it. Do not shut the "
+                "fructose transporter either — fructose joins below the "
+                "crippled step and is most of the carbon this lineage can "
+                "actually use, so closing that door starves it. What it "
+                "really wants is less food, not different food.",
     ),
 
     Constitution(
@@ -113,26 +121,52 @@ CONSTITUTIONS: list[Constitution] = [
     Constitution(
         "slow_burner", "reduced respiratory capacity",
         "the respiratory chain runs at little over half the usual rate",
-        capacity={"oxphos": 0.42},
+        # As above: the chain runs at about 2.0/s and could do 15.0, so 0.42
+        # was never the constraint. 0.15 puts the ceiling at 2.25/s, just
+        # inside what a respiring cell wants, and it builds a little over half.
+        #
+        # The baseline override on `etc` is gone. It raised the idle to 0.45
+        # against a standard 0.30 while the capacity was meant to be cutting
+        # the same step down -- the trait was quietly undoing itself, and for a
+        # player who marks the respiratory chain at all the baseline never
+        # applied in the first place.
+        capacity={"oxphos": 0.15},
         holds={"acetyl": 0.55, "pyruvate": 0.6},
-        baseline={"etc": 0.45, "ldh": 0.25},
+        baseline={"ldh": 0.25},
         counsel="Everything this lineage eats and cannot burn becomes damage, "
                 "so it wants less food rather than different food — and it "
                 "will lean on fermentation whether you ask it to or not.",
     ),
 
     Constitution(
-        "nitrogen_poor", "poor nitrogen clearance",
-        "ammonia is made faster than it can be sent out",
-        # The nitrogen has to actually move for the trait to bite, so this
-        # lineage also deaminates more readily than most: it strips amino
-        # groups whether or not it has anywhere to put them.
+        "nitrogen_poor", "poor nitrogen handling",
+        "it takes more amino acid to build the same cell, and what it strips "
+        "it cannot send out",
+        # This trait used to be clearance alone: deaminate readily, export
+        # badly, and choke on your own ammonia. It had no teeth. Ammonia's pool
+        # is small, so it fills, product inhibition stops GDH, and the cell
+        # simply stops deaminating -- which costs it nothing, because it was
+        # not gaining from GDH in the first place. A trait whose whole cost is
+        # "you may not use a route you did not need" is not a trait.
+        #
+        # What bites in a game scored on what you *build* is a worse rate on
+        # the nitrogen the cell actually consumes. Biosynthesis needs glutamate
+        # for every unit of biomass; this body needs far more of it about to
+        # run at the same speed. The clearance problem stays, because it is
+        # what makes a protein-heavy diet uncomfortable rather than simply
+        # better -- but the preference it produces is the opposite of what the
+        # old counsel said, and the counsel was describing a mechanism that
+        # never worked.
+        affinity={"glutamate": 5.0},
         capacity={"exchange_ammonia": 0.14, "gdh": 1.5},
         holds={"ammonia": 0.09},
         baseline={"amt": 0.10, "gdh": 0.55},
-        counsel="Amino acids are the problem here, not sugar or fat. Nitrogen "
-                "this lineage takes in has nowhere to go, so keep the protein "
-                "low and take the carbon in some other form.",
+        counsel="Nitrogen is the problem here, and the answer is more of it "
+                "rather than less: this lineage needs a great deal of amino "
+                "acid about before it will build at any speed. A diet thin in "
+                "protein starves it. What it strips it still cannot send out, "
+                "so give it the nitrogen and leave glutamate dehydrogenase "
+                "alone.",
     ),
 
     Constitution(
