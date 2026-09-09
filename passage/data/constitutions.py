@@ -121,21 +121,33 @@ CONSTITUTIONS: list[Constitution] = [
     Constitution(
         "slow_burner", "reduced respiratory capacity",
         "the respiratory chain runs at little over half the usual rate",
-        # As above: the chain runs at about 2.0/s and could do 15.0, so 0.42
-        # was never the constraint. 0.15 puts the ceiling at 2.25/s, just
-        # inside what a respiring cell wants, and it builds a little over half.
+        # This trait was a flat tax, and the measurements say plainly why it
+        # had to be. Every diet in the game needs ATP; there is no meal that
+        # avoids the respiratory chain, so a cap on the chain scales everything
+        # down by the same fraction whatever the lineage eats. Measured across
+        # five diets its spread was 1.08 -- and so was an even lineage's. The
+        # problem was never that the trait was flat; it was that it gave the
+        # player nothing to *do*.
         #
-        # The baseline override on `etc` is gone. It raised the idle to 0.45
-        # against a standard 0.30 while the capacity was meant to be cutting
-        # the same step down -- the trait was quietly undoing itself, and for a
-        # player who marks the respiratory chain at all the baseline never
-        # applied in the first place.
-        capacity={"oxphos": 0.15},
+        # So it is a mark rather than a multiplier. The chain barely idles at
+        # all here: a configuration that does not spend one of its eight on the
+        # respiratory chain scores essentially nothing, against 0.107 for an
+        # even lineage doing the same thing. Spend the mark and this body runs
+        # at about four fifths of standard. The cost is one eighth of the
+        # budget, which is a decision, and the margin says which mark it is.
+        #
+        # The old baseline override went the other way: it raised the idle to
+        # 0.45 against a standard 0.30 while the capacity was cutting the same
+        # step down, so the trait was quietly undoing itself.
+        capacity={"oxphos": 0.22},
         holds={"acetyl": 0.55, "pyruvate": 0.6},
-        baseline={"ldh": 0.25},
-        counsel="Everything this lineage eats and cannot burn becomes damage, "
-                "so it wants less food rather than different food — and it "
-                "will lean on fermentation whether you ask it to or not.",
+        baseline={"etc": 0.04, "ldh": 0.25},
+        counsel="The respiratory chain does not idle in this lineage — it has "
+                "to be switched on by hand, and one of your eight marks is "
+                "spoken for before you start. Leave it unmarked and nothing "
+                "else you do will matter. Marked, this body runs at about "
+                "four fifths of standard on any diet: it is not fussy about "
+                "food, it is short of budget.",
     ),
 
     Constitution(

@@ -27,7 +27,7 @@ python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --eat "low sugar"        # start on a diet other than the default
 python -m passage --shot end.png --reckoning --grow --ticks 18000
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 175 tests
+python -m pytest                           # 178 tests
 ```
 
 `space` pauses · `tab` opens the appendix (seven pages; `1`–`8` on the
@@ -217,29 +217,69 @@ had drifted eight per cent above the other diets, which is most of why everybody
 wanted it. All the full diets are now level to within one and a half per cent —
 `sparse` excepted, which is the one diet that is *about* eating less.
 
+**And one diet was not what its name said.** "Low sugar" was the
+*protein*-heaviest diet on the menu — glutamate 7.2 against the standard diet's
+4.3 — and since biosynthesis takes glutamate straight into biomass without
+oxidising anything, every body grew perfectly well on it whatever its trait
+broke. It is now genuinely fat-led (palmitate 8.5, glutamate 2.2), which is what
+it has to be if it is to be the diet that asks whether a body can oxidise. That
+one change is what let poor fat handling finally show: it scores 0.150 there
+against an even lineage's 0.256.
+
 Where it lands, each body on each diet, configured as well as it can be:
 
-| | standard | low sugar | low fat | low protein | creamy | plain | rich | sparse | wants |
-|---|---|---|---|---|---|---|---|---|---|
-| even | **0.254** | 0.251 | 0.240 | 0.236 | 0.242 | 0.221 | 0.177 | 0.241 | standard |
-| poor sugar handling | 0.123 | 0.175 | 0.062 | 0.098 | 0.142 | *0.010* | 0.100 | **0.198** | sparse |
-| poor fat handling | **0.252** | 0.175 | 0.238 | 0.178 | 0.243 | 0.220 | *0.075* | 0.238 | standard |
-| reduced respiration | 0.169 | 0.164 | 0.156 | 0.166 | **0.171** | 0.146 | 0.110 | 0.163 | creamy |
-| poor nitrogen handling | 0.225 | **0.252** | 0.204 | *0.175* | 0.225 | 0.195 | 0.179 | 0.198 | low sugar |
-| no milk tolerance | **0.253** | 0.251 | 0.241 | 0.236 | *0.131* | 0.223 | 0.177 | 0.240 | standard |
-| thrifty | **0.280** | 0.270 | 0.257 | 0.268 | 0.259 | 0.241 | 0.118 | 0.270 | standard |
+| | standard | medit. | low sugar | low fat | low protein | creamy | plain | rich | sparse | wants |
+|---|---|---|---|---|---|---|---|---|---|---|
+| even | 0.254 | 0.240 | **0.256** | 0.240 | 0.236 | 0.242 | 0.221 | 0.177 | 0.241 | low sugar |
+| poor sugar handling | 0.123 | 0.105 | **0.207** | 0.062 | 0.098 | 0.142 | *0.010* | 0.100 | 0.198 | low sugar |
+| poor fat handling | **0.252** | 0.239 | *0.150* | 0.238 | 0.178 | 0.243 | 0.220 | 0.075 | 0.238 | standard |
+| reduced respiration | 0.221 | 0.211 | 0.209 | 0.204 | 0.215 | **0.223** | 0.190 | 0.147 | 0.212 | creamy |
+| poor nitrogen handling | 0.225 | 0.216 | **0.238** | 0.204 | *0.175* | 0.225 | 0.195 | 0.179 | 0.198 | low sugar |
+| no milk tolerance | 0.253 | 0.239 | **0.256** | 0.241 | 0.236 | *0.131* | 0.223 | 0.177 | 0.240 | low sugar |
+| thrifty | **0.280** | 0.265 | 0.263 | 0.257 | 0.268 | 0.259 | 0.241 | 0.118 | 0.270 | standard |
 
-Four different answers where there had been one, and the italics are the point:
-each body has a diet that costs it half its score or worse, and it is a
-different diet for each. A lineage that cannot use sugar scores 0.010 on the
-plainest, most wholesome diet on the menu — the one made almost entirely of
-wholegrain and vegetables — and 0.198 on the diet that is simply *less food*.
+The italics are the point: each body has a diet that costs it half its score or
+worse, and it is a different diet for each. A lineage that cannot use sugar
+scores 0.010 on the plainest, most wholesome diet on the menu — the one made
+almost entirely of wholegrain and vegetables — and 0.207 on the one made of
+butter.
 
-**Reduced respiration is still a flat tax** rather than a diet preference:
-0.146 to 0.171 across the board. I have left it, because it is arguably correct
-— not being able to burn things is not a complaint about *what* you eat — but it
-is the one trait that gives a player nothing to work out, and it is the next
-thing I would look at.
+### The one trait that is not about food
+
+Reduced respiratory capacity stayed a flat tax through all of that, and the
+measurements say plainly why it had to. **Every diet needs ATP.** There is no
+meal that avoids the respiratory chain, so a cap on the chain scales everything
+down by the same fraction whatever the lineage eats. Across five diets its
+spread was 1.08 — and an even lineage's spread was also 1.08. It was not
+unusually flat. It was uniformly *smaller*, and the real complaint was that it
+gave the player nothing to do.
+
+Three mechanisms were measured and rejected before the fourth worked:
+
+- **Lean on fermentation.** The obvious answer to a broken chain, and it makes
+  things worse at every setting tried: fermenting regenerates NAD+ by throwing
+  the carbon away as lactate, and the score weighs yield. Raising this lineage's
+  LDH and lactate export took it from 0.169 to 0.117. Fermentation is only ever
+  worth it across *cells* — one lineage's waste as another's fuel — which is
+  what the junction mechanic is for.
+- **Prefer sugar over fat**, since sugar yields ATP at substrate level and fat
+  does not. True in the flux, invisible in the score: its NADH sits pinned at
+  98% on every diet, so NAD+ is the binding constraint everywhere and the
+  carbon source makes no difference to it.
+- **Eat less.** Under a score that counts production, eating less always loses.
+
+What worked was to stop making it a multiplier. **The chain barely idles in this
+body at all.** A configuration that does not spend one of its eight marks on the
+respiratory chain scores essentially nothing — against 0.107 for an even lineage
+doing exactly the same thing. Spend the mark and it runs at about four fifths of
+standard on anything.
+
+So the trait costs an eighth of the budget rather than a fifth of every score,
+and that is a decision a player can find and act on. The margin names the gene,
+the appendix says the chain does not idle here, and the counsel says outright
+that one mark is spoken for before the run starts. It is still not a diet
+preference, and it should not be: not being able to burn things is not a
+complaint about what you eat.
 
 The four tests that were marked `xfail` now pass, and nothing in the suite is
 marked known-failing.

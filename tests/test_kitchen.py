@@ -36,6 +36,33 @@ def run(flow, vigour, seconds: float, lineage=None) -> None:
 
 # --- the medium ------------------------------------------------------------
 
+def test_every_full_diet_offers_the_same_amount_of_food():
+    """Otherwise a comparison between two diets is a comparison of dinner sizes.
+
+    It went wrong once: creamy drifted eight per cent above the rest and became
+    the best diet for six of the seven constitutions, which read as a balance
+    problem with the traits and was really just the biggest meal winning.
+
+    ``sparse`` is exempt, and is the only diet that is *about* eating less.
+    """
+    full = {name: foods.supply(diet) for name, diet in foods.MENU.items()
+            if name != "sparse"}
+    assert max(full.values()) / min(full.values()) < 1.03, full
+    assert foods.supply(foods.SPARSE) < min(full.values()) * 0.75
+
+
+def test_the_low_sugar_diet_actually_leans_on_fat():
+    """It is the menu's test of whether a body can oxidise, so it has to be one
+    a body cannot simply eat around. It used to be the protein-heaviest diet on
+    the menu, and since biosynthesis takes glutamate straight into biomass
+    without oxidising anything, every lineage grew on it whatever its trait
+    broke."""
+    gates = kitchen.gates(foods.LOW_SUGAR)
+    assert gates["palmitate"] > gates.get("glucose", 0.0) * 4
+    assert gates["palmitate"] > gates.get("glutamate", 0.0) * 2
+    assert gates["palmitate"] > kitchen.gates(foods.STANDARD)["palmitate"] * 5
+
+
 def test_serving_a_diet_replaces_the_last_one_rather_than_adding_to_it():
     flow, marks, vigour = build("baseline", 0)
     net = flow.net

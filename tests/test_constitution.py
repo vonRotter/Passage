@@ -208,6 +208,47 @@ def test_the_cost_is_in_what_the_body_cannot_build_with():
     assert even_vigour.vigour > 0.95
 
 
+def test_reduced_respiration_costs_a_mark_rather_than_a_meal():
+    """The one trait that is not about food, and the fix for it being a flat tax.
+
+    Every diet in this game needs ATP, so a cap on the respiratory chain scales
+    everything down by the same fraction whatever the lineage eats: measured
+    across five diets its spread was 1.08, and an even lineage's was also 1.08.
+    The complaint was never really that it was flat. It was that it gave the
+    player nothing to do.
+
+    So the chain barely idles here, and the trait is a mark instead: one of the
+    eight is spoken for before the run starts. Spend it and this body is nearly
+    ordinary; leave it and nothing else matters.
+    """
+    from passage.bio.marks import Kind
+
+    def score(constitution, config):
+        flow, marks, vigour = build("baseline", 0, diet=foods.STANDARD,
+                                    constitution=constitution)
+        for token in config.split():
+            marks.place(token[:-1], Kind.ACTIVATING)
+        flow.settle()
+        for _ in range(TICKS):
+            flow.step()
+            vigour.update(tuning.DT)
+        return vigour.score(flow.pool_of("biomass"))
+
+    with_chain = "glut pfk gapdh pdh cs etc biosyn aat".replace(" ", "+ ") + "+"
+    without = "glut pfk gapdh pdh cs ogdh biosyn aat".replace(" ", "+ ") + "+"
+
+    theirs_marked = score("slow_burner", with_chain)
+    theirs_not = score("slow_burner", without)
+    even_not = score("even", without)
+
+    assert theirs_not < even_not * 0.1, (
+        "leaving the chain unmarked should be ruinous for this body and merely "
+        f"poor for anyone else: {theirs_not:.3f} against {even_not:.3f}")
+    assert theirs_marked > theirs_not * 10, "the mark must be the answer"
+    assert theirs_marked > score("even", with_chain) * 0.75, (
+        "having spent the mark, this body should be nearly ordinary")
+
+
 def test_a_charged_cell_is_not_a_congested_one():
     """ATP at ninety-nine per cent is health. Counting it as congestion made
     every lineage sick for being alive."""

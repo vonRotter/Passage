@@ -145,9 +145,15 @@ STANDARD: dict[str, float] = {
 #: with the traits and was really just the biggest dinner winning.
 #: A spread of diets to choose between. None of them is right on its own -- what
 #: makes one right is the constitution it is being fed to.
+# Leaning on fat, which is what "low sugar" has to mean if it is to be the
+# diet that tests a body's ability to *oxidise*. It used to be the
+# protein-heaviest diet on the menu -- glutamate 7.2 against the standard
+# diet's 4.1 -- and since biosynthesis takes glutamate straight into biomass
+# without oxidising anything, every body grew perfectly well on it whatever
+# its trait broke. It was the reason a lineage that cannot respire looked
+# identical on every diet.
 LOW_SUGAR: dict[str, float] = {
-    "fish": 2.2, "legumes": 1.9, "vegetables": 0.9, "butter": 0.9,
-    "red_meat": 0.5,
+    "butter": 5.32, "fish": 1.06, "vegetables": 1.06,
 }
 LOW_FAT: dict[str, float] = {
     "wholegrain": 2.55, "vegetables": 1.65, "legumes": 0.95, "sweets": 0.3,
@@ -172,8 +178,19 @@ ASCETIC: dict[str, float] = {
 }
 
 
+#: Asked for by name. Fish and olive oil rather than butter and red meat: fat
+#: and nitrogen together, carbohydrate slowly, and very little that costs
+#: anything. It is the diet the food table's own harm coefficients like best,
+#: which is not a coincidence -- fish is the one rich food in the game with a
+#: harm of zero.
+MEDITERRANEAN: dict[str, float] = {
+    "vegetables": 2.02, "fish": 1.38, "wholegrain": 1.20, "legumes": 0.92,
+    "dairy": 0.46, "red_meat": 0.09,
+}
+
 MENU: dict[str, dict[str, float]] = {
     "standard": STANDARD,
+    "mediterranean": MEDITERRANEAN,
     "low sugar": LOW_SUGAR,
     "low fat": LOW_FAT,
     "low protein": LOW_PROTEIN,
