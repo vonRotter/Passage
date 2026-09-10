@@ -210,7 +210,7 @@ class Plate:
         # The one printed enzyme name on the plate. Upkeep is the only vessel
         # that does not run between two pools -- it is a curl spending ATP on
         # nothing -- so without a word it reads as an inking mistake.
-        typo.caps(page, "upkeep", (512, 206), 8, palette.INK_FAINT, 1.6)
+        typo.caps(page, "upkeep", (456, 212), 8, palette.INK_FAINT, 1.6)
 
     def _ink_adopted(self, page: pygame.Surface, adopted: frozenset[str]) -> None:
         """Only the newly-taken-up parts, at printed weight, and nothing else.

@@ -54,6 +54,9 @@ class Metabolite:
     #: is trying to make is the point of the exercise. Everything else backing
     #: up is a substance with nowhere to go.
     congests: bool = True
+    #: Harmful by concentration rather than by being stuck. A pool of this at
+    #: its cap is doing damage even when it is clearing as fast as it arrives.
+    toxic: bool = False
     #: Whether a junction passes it between cells. Small metabolites travel;
     #: the conserved carriers deliberately do not. A cell that could be handed
     #: ATP by a neighbour would never need to make any, and specialisation
@@ -83,6 +86,19 @@ METABOLITES: list[Metabolite] = [
     _m("pyruvate", "pyruvate", {"C": 3, "H": 4, "O": 3}, Class.SUGARS, cap=30.0, km=3.0),
     _m("oxaloacetate", "oxaloacetate", {"C": 4, "H": 4, "O": 5}, Class.SUGARS,
        cap=60.0, km=1.0, note="TCA acceptor; drains without anaplerosis"),
+
+    # --- what a night out brings ----------------------------------------
+    _m("ethanol", "ethanol", {"C": 2, "H": 6, "O": 1}, Class.SUGARS,
+       cap=50.0, km=4.0,
+       note="crosses the membrane without a transporter, so no mark keeps it "
+            "out. The trouble is not the ethanol; it is what the cell turns "
+            "it into on the way to something usable"),
+    _m("acetaldehyde", "acetaldehyde", {"C": 2, "H": 4, "O": 1}, Class.WASTE,
+       cap=5.0, km=0.8, toxic=True,
+       note="the intermediate, and the reason drinking costs anything. The "
+            "pool is tiny, nothing else in the cell consumes it, and one "
+            "enzyme clears it — leave that unmarked and it sits at its cap "
+            "doing damage for as long as the drink lasts"),
 
     # --- lipids ---------------------------------------------------------
     _m("acetyl", "acetyl-CoA", {"C": 2, "H": 4, "O": 2}, Class.LIPIDS, cap=40.0, km=2.0,

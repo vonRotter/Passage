@@ -77,6 +77,11 @@ class Upset:
     lines: list[str] = field(default_factory=list)
     #: Marks that were placed for a gate that has just closed.
     stranded: list[str] = field(default_factory=list)
+    #: What the portions actually did, when the change came from a nudge
+    #: rather than an order. A nudge lands imperfectly and part of whatever it
+    #: takes out comes back as something else, so what a player asked for and
+    #: what they got are different lists.
+    moved: dict[str, float] = field(default_factory=dict)
 
     @property
     def quiet(self) -> bool:

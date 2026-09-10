@@ -27,12 +27,12 @@ python -m passage --shot ref.png --page 3  # a page of the appendix
 python -m passage --eat "low sugar"        # start on a diet other than the default
 python -m passage --shot end.png --reckoning --grow --ticks 18000
 python -m passage --headless --profile growing --ticks 50000
-python -m pytest                           # 178 tests
+python -m pytest                           # 193 tests
 ```
 
-`space` pauses · `tab` opens the appendix (seven pages; `1`–`8` on the
-kitchen page changes the diet) · `d` divides the selected
-cell · `shift`+`1`–`5` pushes it into a specialism · `1`–`9` or a click on the
+`space` pauses · `tab` opens the appendix (eight pages; on the kitchen page
+`1`–`8` picks a diet outright and `a`–`h` asks for a change) · `d` divides the
+selected cell · `shift`+`1`–`5` pushes it into a specialism · `1`–`9` or a click on the
 tree selects one · left click activates a gene, right
 click silences it, the same button again lifts it · **ctrl-click writes it into
 the genome, for good** · `g` advances a generation. A run is fifteen minutes.
@@ -573,6 +573,93 @@ everybody? The plate already argues for the first — it prints unadopted
 pathways faintly — and the second would make the diet axis meaningless. So I
 have left it, and written down what it costs.
 
+### What you can ask for, and what happens anyway
+
+Choosing a menu outright is a strange thing for a game about a body to let you
+do. Nobody eats a menu. What people are given is a *direction* — eat more fish,
+cut the processed meat, drink less — and what they manage is somewhere near it.
+So the kitchen page now has both: the eight diets, still there and still
+choosable, and eight **intentions** underneath them, keyed `a`–`h`.
+
+An intention lands imperfectly, for two reasons, and only the second one is
+interesting.
+
+The first is that nobody eats a number. Ask to cut the fat by 60% and between
+half and half again of that is what actually happens, drawn from the lineage's
+own seeded stream — reproducible across a re-run of the same seed, not
+predictable in advance.
+
+The second is **substitution**. Food taken out of a diet does not leave a hole.
+Something fills it, and what fills it is whatever is nearest to hand, which in
+this model is sweets (0.42 of the gap), wholegrain (0.28), processed meat
+(0.18), and dairy (0.12). This is the whole point of the mechanic. Nudging
+"less fat" at a lineage living on the creamy diet does what it says —
+
+| food | portions moved |
+|---|---|
+| dairy | **−1.10** |
+| sweets | +0.30 |
+| wholegrain | +0.20 |
+| processed meat | +0.13 |
+
+— and the margin answers, immediately and without being asked:
+
+> Fructose arrives 2.1 times faster and nothing is marked to take it in. It will
+> sit in the medium until something is.
+
+The player did exactly what they were told and made the diet worse in a way that
+has a name and a location on the plate. `eat_less` is the one intention with no
+substitution in it, and it is the only one that lowers what the lineage has to
+work with — which is the honest trade, not a free win.
+
+#### Events
+
+The other half is what happens to you regardless. Three events are drawn per
+run from a seeded schedule, none in the first 150 seconds and none within 130
+seconds of another, each announcing itself in the margin as it arrives and each
+printed in the appendix from the first second. They are not a difficulty
+setting and they are not unfair: a run can bring a night out, a bad three days,
+a week of flu, a fortnight of deadlines, or a good stretch, and you can read all
+five before anything happens.
+
+What they are is *outside the plan*. The register you configured for a steady
+diet is the register you have when the diet stops being steady.
+
+#### The night out, and why ethanol is the right disaster
+
+The one that has teeth is the drinking. Ethanol crosses a membrane by
+diffusion; it needs no transporter, so there is no gene on the register that
+keeps it out — the only lever is how much arrives, and by the time the event has
+landed, that is decided. The plate now carries the route: ethanol against the
+membrane in the cytosol, alcohol dehydrogenase down to **acetaldehyde**, and
+aldehyde dehydrogenase crossing into the mitochondrion, which is where ALDH2
+actually sits (Edenberg, 2007).
+
+Acetaldehyde is the first metabolite in the game that is **toxic by
+concentration rather than by congestion**. Every other harm in Passage comes
+from a pool that cannot drain: inflow exceeds outflow, the queue lengthens, and
+the cell is damaged for holding it. Acetaldehyde was perfectly flux-balanced at
+94% of its cap and doing no damage at all, which is exactly wrong — the harm is
+the substance, not the traffic. So `Metabolite.toxic` charges damage above a
+30% share regardless of whether anything is stuck.
+
+What that buys, measured over a 50-second night against an eight-mark lineage
+on the standard diet:
+
+| plan | cost of the night | vigour after | built | score |
+|---|---|---|---|---|
+| eight marks, no ALDH | 74 | 76% | 570 | 0.183 |
+| eight, PFK-1 traded for ALDH | **53** | 81% | 617 | **0.219** |
+| nine marks (ALDH added, not traded) | 52 | 81% | 599 | 0.204 |
+| no night at all | 13 | 94% | 622 | 0.255 |
+
+The third row is a control rather than a playable option — the budget is eight —
+and it is there to show that the middle row's gain is the mark, not the removal
+of PFK-1. Trading a glycolytic step for an enzyme that does nothing on most days
+is a real cost paid against an event that may not come; the run where it does
+not come scores worse for having paid it. That is the shape I wanted: insurance
+you can decline.
+
 ### Death
 
 The spec left this open to be decided here, and the answer is yes — **slowly,
@@ -1040,9 +1127,14 @@ literature question. Five decisions were taken; each is reversible.
   but not illuminating. The alternative, driving cycle flux from the NADH/NAD+
   ratio and adenylate charge as real cells do, is more defensible and more
   work.
-- **The reaction count sits at the low end.** Twenty-four solver rows against
-  the spec's "roughly 22". Spec open question 4 asks for 16 and 28 to be tested
-  at M2; the compile step is already agnostic about the count.
+- **The reaction count sits at the low end.** Eighteen chemistry steps against
+  the spec's "roughly 22" — the fructose shunt and the two alcohol steps added
+  three of them. Twenty-nine solver rows, because nine traffic routes with the
+  medium and two reverse directions are each their own row and none of them is
+  a reaction the reader has to learn. Spec open question 4 asks for 16 and 28
+  to be tested at M2; the compile step is already agnostic about the count, and
+  the size test now bounds the drawn chemistry rather than the solver, which is
+  what the spec's concern was actually about.
 
 ---
 
@@ -1104,6 +1196,10 @@ costs them.
 
 Berg, J. M., Tymoczko, J. L., Gatto, G. J., & Stryer, L. (2019). *Biochemistry*
 (9th ed.). W. H. Freeman.
+
+Edenberg, H. J. (2007). The genetics of alcohol metabolism: Role of alcohol
+dehydrogenase and aldehyde dehydrogenase variants. *Alcohol Research & Health,
+30*(1), 5–13.
 
 Hinkle, P. C. (2005). P/O ratios of mitochondrial oxidative phosphorylation.
 *Biochimica et Biophysica Acta (BBA) — Bioenergetics, 1706*(1–2), 1–11.

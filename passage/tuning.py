@@ -45,6 +45,20 @@ FIX_MINIMUM_BIOMASS = 60.0   # below this the lineage cannot afford to fix at al
 # none of that means anything without a bell.
 RUN_LENGTH = 900.0           # simulated seconds; the sim runs at real time
 
+# --- intentions and events -------------------------------------------------
+# A nudge is a direction, not a dial. What lands is somewhere between half and
+# half again of what was asked for, and part of whatever was taken out comes
+# back as whatever is nearest to hand.
+INTENTION_LANDS = (0.5, 1.5)
+INTENTION_SUBSTITUTES = (0.45, 0.95)
+INTENTION_INTRODUCES = 0.35   # portions, when a nudge asks for more of nothing
+
+EVENTS_PER_RUN = 3
+EVENT_QUIET_OPENING = 150.0   # nothing happens before this: a run derailed
+                              # before the player has read the page is not a run
+EVENT_QUIET_ENDING = 60.0
+EVENT_APART = 130.0           # they arrive one at a time
+
 # Removing a mark costs more than placing one and takes longer to bite. This is
 # the mechanical form of the inheritance thesis and it is not to be softened for
 # convenience: un-silencing a gene you silenced three generations ago has to be
@@ -132,6 +146,10 @@ MEDIUM_TARGET = {
     "lactate": 0.0,
     "ammonia": 0.0,
     "palmitate": 0.0,
+    "ethanol": 0.0,        # listed at zero so the medium is *held* at zero:
+                           # what puts ethanol in the bath is a diet, and what
+                           # takes it out again is perfusion, which only runs
+                           # for substances named here.
     "glutamate": 9.0,      # culture media carry amino acids. Nitrogen must not
                            # be the hard cap on growth, or no mark on the carbon
                            # side of the plate can ever change anything.
@@ -144,6 +162,9 @@ MEDIUM_FEED = {                 # units per second, the ceiling on perfusion
     "ammonia": 3.0,
     "palmitate": 0.6,
     "glutamate": 2.0,
+    "ethanol": 5.0,             # so a night out washes out again. Without a
+                                # baseline here the bath stays alcoholic for
+                                # the rest of the run, which it did.
 }
 MEDIUM_START = {
     "glucose": 55.0,
@@ -217,6 +238,21 @@ SPILL_DAMAGE = 2.4          # damage per unit of material actually spilled
 CONGESTION_THRESHOLD = 0.92
 CONGESTION_POWER = 3.0
 JAM_FLOOR = 0.25             # what a full-but-flowing pool still costs
+
+# Some substances are harmful by *concentration* rather than by being stuck.
+# Acetaldehyde is the case the rest of the model gets wrong: it pins at its cap
+# and clears exactly as fast as it arrives, so the jam rule reads it as a
+# working pipeline, which it is -- a working pipeline full of poison. For these
+# the fill alone is the damage, from a much lower threshold.
+TOXIC_THRESHOLD = 0.30
+TOXIC_DAMAGE = 1.5
+# At 1.5 an unprepared lineage pays about 74 of damage for one night out and
+# finishes at 76% vigour -- a real dent it cannot undo, and not a sentence.
+# Trading PFK-1 for aldehyde dehydrogenase cuts that to 53 and scores better
+# overall, which is the decision: you cannot keep the alcohol out, because it
+# needs no transporter, but you can be equipped for it, at the price of a mark
+# you would rather have spent on ordinary metabolism -- and if the run never
+# brings a night out, that mark was wasted. Which is what insurance is.
 JAM_TAU = 2.5                # seconds; how long a pool must stay stuck to count
 EXPORT_CLEARS = 0.5          # how well flushing a substance counts against using it
 CONGESTION_DAMAGE = 300.0

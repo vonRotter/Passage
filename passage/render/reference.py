@@ -46,17 +46,19 @@ def equation(reaction: rxn_data.Reaction) -> str:
 
 
 class Reference:
-    """Three pages, inked once each, turned with the arrow keys."""
+    """The appendix, inked a page at a time and turned with the arrow keys."""
 
     TITLES = ("the substances", "the reactions", "the genes", "the diet",
-              "the kitchen", "the constitution", "specialisms")
+              "the kitchen", "what happens anyway", "the constitution",
+              "specialisms")
     SUBTITLES = (
         "what is in the cell, what makes it, and what uses it up",
         "every row balances on a real atom count; water and phosphate are "
         "present where the chemistry needs them but never limit anything",
         "what marking one would change, and what it idles at if you leave it",
         "relish against damage, and what it leaves behind",
-        "what this lineage eats — press a number to change it",
+        "a number picks a diet outright · a letter asks for a change",
+        "every one of these can befall a run; none of them can be prevented",
         "the genome this lineage was dealt, which no mark will change",
         "what a cell can be pushed into being, and what it gives up for it",
     )
@@ -97,7 +99,8 @@ class Reference:
         ink.ink_line(surface, (MARGIN, 78), (layout.WINDOW[0] - MARGIN, 78),
                      0.7, 5000 + page, palette.INK, 0.55)
         [self._substances, self._reactions, self._genes, self._diet,
-         self._kitchen, self._constitution, self._specialisms][page](surface)
+         self._kitchen, self._happens, self._constitution,
+         self._specialisms][page](surface)
         ink.ink_line(surface, (MARGIN, 684), (layout.WINDOW[0] - MARGIN, 684),
                      0.6, 5100 + page, palette.INK, 0.4)
         return surface
@@ -303,6 +306,40 @@ class Reference:
                       align="right")
             y += 30
 
+        # what you can *ask for*, as against what you can order outright
+        from ..bio import life as life_mod
+
+        y = 440
+        typo.caps(surface, "or ask for a change", (MARGIN, y), 9,
+                  palette.INK_FAINT, 1.6)
+        ink.ink_line(surface, (MARGIN, y + 14),
+                     (layout.WINDOW[0] - MARGIN, y + 14), 0.5, 5310,
+                     palette.INK, 0.4)
+        for i, line in enumerate(_wrap(
+                "A letter nudges the diet you are on rather than replacing it "
+                "— and it lands imperfectly, because nobody eats a number. "
+                "What it takes out, something else fills: cut one thing "
+                "without deciding what replaces it and a good part of what "
+                "comes back is whatever was nearest to hand.",
+                10, layout.WINDOW[0] - MARGIN * 2)):
+            typo.draw(surface, line, (MARGIN, y + 24 + i * 13), 10,
+                      palette.PENCIL, 0.2)
+        y += 52
+        rows = (len(life_mod.INTENTIONS) + 1) // 2
+        for n, intention in enumerate(life_mod.INTENTIONS):
+            column, row = divmod(n, rows)
+            x = MARGIN + column * 588
+            row_y = y + row * 32
+            typo.draw(surface, chr(ord("a") + n), (x, row_y), 11,
+                      palette.PENCIL, 0.2)
+            typo.draw(surface, intention.label, (x + 24, row_y), 12,
+                      palette.INK, 0.2)
+            note = intention.note
+            while typo.width(note, 10, 0.2) > 520:
+                note = note.rsplit(" ", 1)[0]
+            typo.draw(surface, note, (x + 32, row_y + 14), 10,
+                      palette.PENCIL, 0.2)
+
         for i, line in enumerate(_wrap(
                 "Sugar and fructose are separate columns because they are "
                 "separate doors: fructose joins the pathway below PFK-1, so "
@@ -318,6 +355,63 @@ class Reference:
     def kitchen_row(self, n: int) -> tuple[float, float]:
         """Where the tick against diet ``n`` goes, in window pixels."""
         return (MARGIN - 14, TOP + 56 + 26 + n * 30 + 6)
+
+    def _happens(self, surface: pygame.Surface) -> None:
+        """Everything a run can bring, printed before it brings any of it.
+
+        The list is fixed and public. What is not public is the timing, and
+        that is the only thing about a run that is not knowable in advance --
+        which is the point of it: a lineage configured with no room to spare is
+        one that has bet on nothing happening.
+        """
+        from ..bio import life as life_mod
+        from ..data import foods as food_data
+
+        intro = ("None of these is a punishment for playing badly and none of "
+                 "them can be prevented. They are simply a diet you did not "
+                 "choose, for a while, whatever you had configured for. Three "
+                 "arrive in a run, never in the first two and a half minutes "
+                 "and never two at once, and each one announces itself.")
+        for i, line in enumerate(_wrap(intro, 11,
+                                       layout.WINDOW[0] - MARGIN * 2)):
+            typo.draw(surface, line, (MARGIN, TOP - 6 + i * 15), 11,
+                      palette.INK, 0.2)
+
+        y = TOP + 44
+        for event in life_mod.EVENTS:
+            typo.draw(surface, event.label, (MARGIN, y), 13, palette.INK, 0.3)
+            typo.draw(surface, f"{event.seconds:.0f} seconds",
+                      (MARGIN + 300, y + 2), 10, palette.PENCIL, 0.2)
+            brings = []
+            for food, portions in event.adds.items():
+                brings.append(f"{food_data.BY_ID[food].label} +{portions:g}")
+            for food, factor in event.scales.items():
+                brings.append(f"{food_data.BY_ID[food].label} ×{factor:g}")
+            if event.everything != 1.0:
+                brings.append(f"everything ×{event.everything:g}")
+            listed = " · ".join(brings)
+            while brings and typo.width(listed, 10, 0.2) > 690:
+                brings.pop()
+                listed = " · ".join(brings) + " · and more"
+            typo.draw(surface, listed, (MARGIN + 430, y + 2), 10,
+                      palette.PENCIL, 0.2)
+            for i, line in enumerate(_wrap(event.tells, 11,
+                                           layout.WINDOW[0] - MARGIN * 2 - 20)):
+                typo.draw(surface, line, (MARGIN + 12, y + 20 + i * 14), 11,
+                          palette.PENCIL, 0.2)
+            y += 22 + 14 * max(1, len(_wrap(event.tells, 11,
+                                            layout.WINDOW[0] - MARGIN * 2 - 20)))
+            y += 12
+
+        for i, line in enumerate(_wrap(
+                "The night out is the one with no door. Ethanol is small and "
+                "uncharged and crosses the membrane on its own, so nothing on "
+                "the register keeps it out — what a lineage can do is be "
+                "equipped for what it turns into, which costs one of the "
+                "eight and is wasted if the night never comes.",
+                10, layout.WINDOW[0] - MARGIN * 2)):
+            typo.draw(surface, line, (MARGIN, 644 + i * 14), 10,
+                      palette.PENCIL, 0.2)
 
     def _constitution(self, surface: pygame.Surface) -> None:
         from ..data import constitutions as con_data

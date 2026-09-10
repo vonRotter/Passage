@@ -55,6 +55,16 @@ INTERNAL: list[Reaction] = [
        note="fructokinase and aldolase B, lumped. Same atoms as the glucose "
             "route and the same two ATP, but it joins the pathway below the "
             "regulation point, so the brake on sugar is not on this"),
+    _r("adh", "ethanol → acetaldehyde",
+       {"ethanol": 1, "nad": 1}, {"acetaldehyde": 1, "nadh": 1},
+       "adh", 6.0,
+       note="the first half of clearing a drink, and the half that idles high "
+            "whether the second half is ready or not"),
+    _r("aldh", "acetaldehyde → acetyl-CoA",
+       {"acetaldehyde": 1, "nad": 1, "water": 1}, {"acetyl": 1, "nadh": 1},
+       "aldh", 8.0,
+       note="the second half. Nothing else in the cell consumes acetaldehyde, "
+            "so this is the only way out of it"),
     _r("glycolysis_lower", "G3P → pyruvate",
        {"g3p": 1, "adp": 2, "phosphate": 1, "nad": 1},
        {"pyruvate": 1, "atp": 2, "nadh": 1, "water": 1},
@@ -157,6 +167,8 @@ EXCHANGE: list[Reaction] = [
     _r("exchange_glucose", "glucose", {"glucose": 1}, {"glucose": 1}, "glut", 10.0, exchange=True),
     _r("exchange_fructose", "fructose", {"fructose": 1}, {"fructose": 1},
        "glut5", 10.0, exchange=True),
+    _r("exchange_ethanol", "ethanol", {"ethanol": 1}, {"ethanol": 1},
+       "ethanol_soak", 9.0, exchange=True),
     _r("exchange_o2", "oxygen", {"o2": 1}, {"o2": 1}, "resp_o2", 20.0, exchange=True),
     _r("exchange_palmitate", "palmitate", {"palmitate": 1}, {"palmitate": 1}, "cd36", 1.5, exchange=True),
     _r("exchange_glutamate", "glutamate", {"glutamate": 1}, {"glutamate": 1}, "aat", 2.5, exchange=True),

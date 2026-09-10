@@ -130,7 +130,7 @@ def run_window(profile: str, seed: int, silent: bool = False,
     from .render import plate as plate_mod
     from .render.plate import Plate
     from .render import ink, interact, margin, panel, reference, roster
-    from .bio import ending
+    from .bio import ending, life as life_mod
     from .bio.diagnose import Diagnostician
     from .bio.marks import Kind
     from .debug import overlay
@@ -165,6 +165,9 @@ def run_window(profile: str, seed: int, silent: bool = False,
     # diet. After that the ordinary bottleneck note has it back.
     upset = None
     upset_left = 0.0
+    life = life_mod.Life(seed, tuning.RUN_LENGTH)
+    befell = None
+    befell_left = 0.0
     # why a click did nothing. A verb that silently declines is a verb the
     # player stops trusting.
     refusal = ""
@@ -229,6 +232,22 @@ def run_window(profile: str, seed: int, silent: bool = False,
                         upset = vigour.serve(diet, name)
                         upset_left = tuning.DIET_TURNOVER
                         audio.scratch()
+                elif (reference_open and appendix.page == reference.Reference.KITCHEN
+                      and pygame.K_a <= event.key <= pygame.K_h):
+                    # asking for a change rather than ordering one. It lands
+                    # imperfectly, and what it takes out something else fills.
+                    want = event.key - pygame.K_a
+                    if want < len(life_mod.INTENTIONS) and life.current is None:
+                        intention = life_mod.INTENTIONS[want]
+                        wanted, moved = life_mod.aim(
+                            vigour.intended or vigour.diet, intention, life.rng)
+                        upset = vigour.serve(wanted, f"{intention.label}")
+                        upset.moved = moved
+                        upset_left = tuning.DIET_TURNOVER
+                        audio.scratch()
+                    elif life.current is not None:
+                        refusal, refusal_left = (
+                            f"not while {life.current.label} is going on", 5.0)
                 elif event.key == pygame.K_g:
                     lineage.advance_generation()
                 elif event.key == pygame.K_d:
@@ -262,6 +281,19 @@ def run_window(profile: str, seed: int, silent: bool = False,
                 elapsed += tuning.DT
                 upset_left = max(0.0, upset_left - tuning.DT)
                 refusal_left = max(0.0, refusal_left - tuning.DT)
+
+                # what happens anyway. The lineage eats it whatever it had
+                # planned, and goes back to the plan when it passes.
+                was = life.current
+                arrived = life.update(elapsed)
+                if arrived is not None:
+                    vigour.impose(life_mod.befalls(vigour.intended or vigour.diet,
+                                                   arrived), arrived.label)
+                    befell, befell_left = arrived, arrived.seconds
+                    audio.sour()
+                elif was is not None and life.current is None:
+                    vigour.relent()
+                befell_left = max(0.0, befell_left - tuning.DT)
                 if ended is None and (elapsed >= tuning.RUN_LENGTH
                                       or not lineage.living):
                     ended = Final(ending.Ending(lineage, vigour, elapsed, flow),
@@ -329,6 +361,8 @@ def run_window(profile: str, seed: int, silent: bool = False,
         # that is wrong.
         if refusal and refusal_left > 0:
             margin.refusal(screen, refusal)
+        elif befell is not None and befell_left > 0:
+            margin.refusal(screen, f"{befell.label}: {befell.tells}")
         showing = pinned or hover
         if upset is not None and upset_left > 0 and showing is None:
             margin.diet_change(screen, upset, upset_left)

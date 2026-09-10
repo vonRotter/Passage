@@ -29,6 +29,13 @@ GENES: list[Gene] = [
          note="cleaves fructose straight to triose, below PFK-1. What makes "
               "it dangerous is not speed but position: silencing the "
               "regulation point does nothing to it"),
+    Gene("adh", "alcohol dehydrogenase", baseline=0.35,
+         note="ethanol to acetaldehyde. It idles high, which is the problem: "
+              "the cell starts making the toxic intermediate whether or not "
+              "anything is ready to clear it"),
+    Gene("aldh", "aldehyde dehydrogenase",
+         note="acetaldehyde to acetyl-CoA, and the only thing that clears it. "
+              "A mark here is what a lineage spends to be able to drink"),
     Gene("ldh", "LDH", note="fermentation; regenerates NAD+ without oxygen"),
     Gene("pdh", "PDH", note="the gate from glycolysis into the TCA cycle"),
     Gene("cs", "citrate synthase", note="acetyl + oxaloacetate, through to 2-oxoglutarate"),
@@ -52,6 +59,10 @@ GENES: list[Gene] = [
          note="glutamate uptake"),
     Gene("mct", "monocarboxylate transporter", baseline=0.40, note="lactate in and out"),
     Gene("co2_vent", "CO2 venting", baseline=1.00, markable=False, note="passive"),
+    Gene("ethanol_soak", "ethanol diffusion", baseline=1.00, markable=False,
+         note="ethanol is small and uncharged and crosses the membrane on its "
+              "own. There is no door to shut, which is the whole of why a "
+              "night out is something that happens *to* a lineage"),
     Gene("amt", "ammonia export", baseline=0.30, note="nitrogen out; neglect it and ammonia builds"),
     Gene("maintenance", "basal maintenance", baseline=1.00, markable=False,
          note="the ATP the cell burns simply by existing"),

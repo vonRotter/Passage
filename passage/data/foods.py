@@ -112,6 +112,13 @@ FOODS: list[Food] = [
               "fructose — which joins glycolysis below PFK-1, so silencing "
               "the regulation point does not slow it at all. The damage is in "
               "the square: one portion is nearly free and four are not"),
+    Food("drink", "beer, wine and spirits",
+         {"ethanol": 3.0}, relish=0.72, harm=0.30, forgiven=0.25,
+         trait="arrives through no door at all, and costs on the way through",
+         note="ethanol needs no transporter, so nothing on the register keeps "
+              "it out. What it costs is the intermediate: alcohol "
+              "dehydrogenase idles high and starts making acetaldehyde "
+              "immediately, and only one enzyme clears it"),
     Food("butter", "butter and saturated fat",
          {"palmitate": 1.5}, relish=0.62, harm=0.85, forgiven=0.2,
          trait="fat alone, straight past glycolysis",

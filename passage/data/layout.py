@@ -57,6 +57,13 @@ POOLS: dict[str, tuple[float, float, float]] = {
     "akg":          (786, 292, 20),
     "oxaloacetate": (692, 398, 21),
 
+    # the drink, and what the cell turns it into on the way to something
+    # usable. Ethanol sits high against the membrane because it needs no
+    # transporter, and the aldehyde step crosses into the mitochondrion, which
+    # is where that enzyme actually is
+    "ethanol":      (620, 138, 22),
+    "acetaldehyde": (546, 186, 14),
+
     # against the membrane on the right, where respiration trades gas
     "o2":           (872, 228, 19),
     "co2":          (872, 378, 18),
@@ -93,6 +100,12 @@ VESSELS: dict[str, list[Point]] = {
     "fructolysis":       [(434, 166), (398, 194), (366, 226), (352, 240)],
 
     "fermentation":      [(332, 372), (344, 400), (332, 418)],
+
+    # the drink. Two strokes, one under the other: ethanol needs no transporter
+    # so it starts high against the membrane, and the aldehyde step is drawn
+    # crossing into the mitochondrion because that is where ALDH2 sits.
+    "adh":               [(601, 150), (578, 166), (558, 178)],
+    "aldh":              [(553, 198), (566, 228), (586, 259)],
 
     # across the mitochondrial membrane, which is a real step and looks like one
     "pdh":               [(353, 344), (430, 338), (500, 314), (577, 290)],
@@ -162,7 +175,7 @@ TRIBUTARIES: dict[str, list[Point]] = {
 #: line at one weight is most of what makes a diagram look machine-made.
 WEIGHTS: dict[str, float] = {
     "glycolysis_upper": 2.3, "glycolysis_lower": 2.3, "pdh": 2.1,
-    "fructolysis": 1.9,
+    "fructolysis": 1.9, "adh": 1.4, "aldh": 1.6,
     "tca_upper": 2.1, "tca_lower": 2.1, "oxphos": 2.8,
     "fermentation": 1.7, "biosynthesis": 1.7, "beta_oxidation": 1.5,
     "anaplerosis": 1.3, "cataplerosis": 1.1, "gluconeogenesis": 1.1,
@@ -177,6 +190,7 @@ EXCHANGE_STUBS: dict[str, tuple[Point, Point]] = {
     "exchange_glucose":   ((330, 130), (308, 68)),
     "exchange_fructose":  ((450, 127), (472, 68)),
     "exchange_lactate":   ((314, 454), (262, 488)),
+    "exchange_ethanol":   ((630, 118), (664, 62)),
     "exchange_o2":        ((891, 228), (940, 210)),
     "exchange_co2":       ((890, 378), (940, 392)),
     "exchange_ammonia":   ((858, 434), (908, 458)),
@@ -191,6 +205,7 @@ LEADER_ANCHORS: dict[str, Point] = {
     "g3p": (352, 248), "pyruvate": (354, 348),
     "lactate": (352, 456), "biomass": (430, 484),
     "acetyl": (622, 268), "oxaloacetate": (692, 421), "akg": (806, 292),
+    "ethanol": (646, 132), "acetaldehyde": (522, 182),
     "palmitate": (546, 466), "glutamate": (778, 462),
 }
 
@@ -210,12 +225,14 @@ def envelope_depth(x: float, y: float) -> float:
 #: on top of a vessel. Hand-placed, like everything else here.
 POOL_LABEL_OFFSET: dict[str, Point] = {
     "glucose": (-54, -14),
-    "fructose": (52, -2),
+    "fructose": (54, -30),
+    "ethanol": (44, -6),
+    "acetaldehyde": (-58, -28),
     "g3p": (40, -14),
     "pyruvate": (48, -16),
     "lactate": (-2, 2),
     "biomass": (-8, 2),
-    "acetyl": (-38, -56),
+    "acetyl": (-4, -58),
     "akg": (-14, -66),
     "oxaloacetate": (-36, 16),
     "palmitate": (-6, 4),

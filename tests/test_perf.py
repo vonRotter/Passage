@@ -34,12 +34,20 @@ def test_twenty_cells_six_hundred_ticks_under_budget():
 def test_the_network_is_the_size_the_spec_asks_for():
     """Spec 3.1 asks for roughly 22 reactions, small enough to hold in the head.
 
-    The bound is deliberately loose; what it catches is the network quietly
+    What the reader has to hold is the chemistry: the steps drawn as vessels on
+    the plate. That is what this bounds. The solver's row count is larger and
+    always was, because a traffic route with the medium and the reverse
+    direction of a reversible step are each their own row, and neither is
+    something the reader has to learn as a separate reaction.
+
+    The bounds are deliberately loose; what they catch is the network quietly
     doubling while nobody is looking, which is how the plate becomes
     unreadable.
     """
     net = network()
-    assert 16 <= len(net.rows) <= 28, len(net.rows)
+    steps = [row for row in net.rows if not row.reverse and not row.exchange]
+    assert 16 <= len(steps) <= 24, len(steps)
+    assert len(net.rows) <= 34, len(net.rows)
 
 
 def test_solving_scales_roughly_linearly_in_cells():

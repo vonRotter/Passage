@@ -92,6 +92,23 @@ def diet_change(surface: pygame.Surface, report, left: float) -> None:
                            f"{report.was} brought that this does not.",
                   (MARGIN_X, y), 11, palette.PENCIL, 0.2)
         return
+    moved = getattr(report, "moved", None)
+    if moved:
+        from ..data import foods as food_data
+        ups = sorted((d for d in moved.values() if d > 0), reverse=True)
+        typo.draw(surface, "what actually moved", (MARGIN_X, y), 10,
+                  palette.INK_FAINT, 0.2)
+        y += 14
+        for food, delta in sorted(moved.items(), key=lambda kv: -abs(kv[1]))[:4]:
+            label = food_data.BY_ID[food].label
+            colour = palette.ALARM if delta > 0 and food in (
+                "sweets", "processed_meat", "butter", "drink") else palette.PENCIL
+            typo.draw(surface, f"{label[:26]}", (MARGIN_X, y), 10, colour, 0.2)
+            typo.draw(surface, f"{delta:+.2f}", (MARGIN_X + MARGIN_WIDTH, y), 10,
+                      colour, 0.0, align="right")
+            y += 13
+        y += 6
+
     for line in report.lines:
         for wrapped in wrap(line, 11, MARGIN_WIDTH):
             if y > NOTE_BOTTOM - 16:

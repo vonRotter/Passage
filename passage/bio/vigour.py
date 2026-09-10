@@ -76,6 +76,12 @@ class Vigour:
         #: last to be one.
         self._jam = np.zeros(self.net.n_metabolites)
         self.served = "standard"
+        #: What the player is aiming at, as against what is actually arriving.
+        #: An event overrides the second without touching the first, so when it
+        #: passes the lineage goes back to the diet it meant to be on.
+        self.intended: dict[str, float] = {}
+        self.intended_name = "standard"
+        self.imposed = None
         self.changes = 0
         #: The broth before any diet was written into it. Kept so that serving a
         #: different diet is a recomputation rather than an accumulation -- an
@@ -115,7 +121,22 @@ class Vigour:
                 self.flow.target_medium[i] += amount * taken * tuning.MEDIUM_RICHNESS
                 self.flow.perfused[i] = 1.0
 
-    def serve(self, diet: dict[str, float], name: str = ""):
+    def impose(self, diet: dict[str, float], label: str):
+        """Something is happening to this lineage. It eats this for now."""
+        if self.imposed is None:
+            self.intended = dict(self.diet)
+            self.intended_name = self.served
+        self.imposed = label
+        return self.serve(diet, label, aiming=False)
+
+    def relent(self):
+        """The event has passed. Back to what the lineage meant to eat."""
+        if self.imposed is None:
+            return None
+        self.imposed = None
+        return self.serve(dict(self.intended), self.intended_name)
+
+    def serve(self, diet: dict[str, float], name: str = "", aiming: bool = True):
         """Change what the lineage eats, from now on.
 
         The medium is not swapped. Perfusion is rate-limited in both directions,
@@ -136,6 +157,9 @@ class Vigour:
             self._base[0].copy(), self._base[1].copy(), self._base[2].copy())
         self.diet = dict(diet)
         self.served = name or "a diet of your own"
+        if aiming:
+            self.intended = dict(diet)
+            self.intended_name = self.served
         self.changes += 1
         for food in self.diet:
             self.eaten.setdefault(food, 0.0)
@@ -274,6 +298,13 @@ class Vigour:
         now = (over ** tuning.CONGESTION_POWER
                * (tuning.JAM_FLOOR + (1.0 - tuning.JAM_FLOOR) * stuck)
                ).sum(axis=0) / count
+
+        # and the substances that are harmful by concentration rather than by
+        # being stuck, which the rule above cannot see: a pool of poison that
+        # clears exactly as fast as it arrives is still a pool of poison.
+        poison = np.maximum(fills - tuning.TOXIC_THRESHOLD, 0.0) ** 2
+        poison = np.where(n.toxic, poison, 0.0).sum(axis=0) / count
+        now = now + poison * (tuning.TOXIC_DAMAGE / tuning.CONGESTION_DAMAGE)
         keep = math.exp(-dt / tuning.JAM_TAU)
         self._jam = self._jam * keep + now * (1.0 - keep)
 
